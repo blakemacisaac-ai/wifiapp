@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WiFi Queue — Tech Panel</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0d1117; --surface: #161b22; --surface2: #1c2330;
+  --border: #2a3548; --border2: #3d4f6b;
+  --accent: #4f9cf9; --accent-dim: rgba(79,156,249,0.12);
+  --green: #23d18b; --red: #f14c4c; --amber: #e2a641;
+  --text: #cdd9e5; --dim: #768390; --muted: #3a4a5a;
+  --mono: 'IBM Plex Mono', monospace;
+}
+body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+/* HEADER */
+.hdr { background: var(--surface); border-bottom: 1px solid var(--border); height: 52px; display: flex; align-items: center; justify-content: space-between; padding: 0 28px; position: sticky; top: 0; z-index: 50; }
+.hdr-left { display: flex; align-items: center; gap: 12px; }
+.hdr-mark { font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; background: var(--accent-dim); border: 1px solid rgba(79,156,249,0.3); border-radius: 3px; padding: 3px 9px; color: var(--accent); }
+.hdr-title { font-family: var(--mono); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); }
+.hdr-right { display: flex; align-items: center; gap: 12px; }
+.meraki-badge { font-family: var(--mono); font-size: 11px; padding: 4px 10px; border-radius: 2px; border: 1px solid; }
+.meraki-badge.ok  { border-color: var(--green); color: var(--green); }
+.meraki-badge.bad { border-color: var(--red);   color: var(--red); }
+.logout-link { font-family: var(--mono); font-size: 11px; color: var(--muted); text-decoration: none; letter-spacing: 0.06em; transition: color 0.15s; }
+.logout-link:hover { color: var(--red); }
+
+/* LAYOUT */
+.layout { max-width: 1100px; margin: 0 auto; padding: 28px; }
+
+/* STATS BAR */
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+.stat { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 16px 18px; }
+.stat-val { font-family: var(--mono); font-size: 26px; font-weight: 600; line-height: 1; margin-bottom: 6px; }
+.stat-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); }
+.stat-val.pending { color: var(--amber); }
+.stat-val.pushed  { color: var(--green); }
+.stat-val.error   { color: var(--red); }
+.stat-val.total   { color: var(--accent); }
+
+/* PANEL */
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+.panel-hdr { background: var(--surface2); border-bottom: 1px solid var(--border); padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; }
+.panel-title { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim); }
+.refresh-btn { font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; background: transparent; border: 1px solid var(--border); color: var(--dim); padding: 4px 10px; border-radius: 2px; cursor: pointer; transition: all 0.15s; }
+.refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* EMPTY */
+.empty { padding: 56px 20px; text-align: center; font-family: var(--mono); font-size: 12px; color: var(--muted); letter-spacing: 0.06em; line-height: 2; }
+
+/* REQUEST ROWS */
+.req-row { border-bottom: 1px solid var(--border); padding: 16px 20px; transition: background 0.1s; }
+.req-row:last-child { border-bottom: none; }
+.req-row:hover { background: var(--surface2); }
+
+.req-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 8px; gap: 12px; }
+.req-ssid { font-family: var(--mono); font-size: 15px; font-weight: 600; color: #fff; }
+.req-conf { font-size: 13px; color: var(--dim); margin-bottom: 10px; }
+
+.req-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.tag { font-family: var(--mono); font-size: 11px; color: var(--dim); background: var(--bg); border: 1px solid var(--border); padding: 3px 9px; border-radius: 2px; }
+
+.req-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+.slot-sel { background: var(--bg); border: 1px solid var(--border); color: var(--text); font-family: var(--mono); font-size: 11px; padding: 7px 10px; border-radius: 3px; outline: none; cursor: pointer; }
+.slot-sel:focus { border-color: var(--accent); }
+.slot-sel:disabled { opacity: 0.4; }
+
+.btn { font-family: var(--mono); font-size: 11px; font-weight: 500; letter-spacing: 0.07em; text-transform: uppercase; padding: 7px 14px; border-radius: 3px; cursor: pointer; border: 1px solid; transition: all 0.15s; white-space: nowrap; }
+.btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.btn-push  { background: rgba(35,209,139,0.1); color: var(--green); border-color: rgba(35,209,139,0.35); }
+.btn-push:hover:not(:disabled)  { background: rgba(35,209,139,0.2); }
+.btn-del   { background: transparent; color: var(--dim); border-color: var(--border); }
+.btn-del:hover { border-color: var(--red); color: var(--red); }
+
+/* STATUS BADGE */
+.s-badge { font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; padding: 4px 10px; border-radius: 2px; border: 1px solid; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.s-badge.pending { background: rgba(226,166,65,0.1);  color: var(--amber); border-color: rgba(226,166,65,0.3); }
+.s-badge.pushed  { background: rgba(35,209,139,0.1);  color: var(--green); border-color: rgba(35,209,139,0.3); }
+.s-badge.error   { background: rgba(241,76,76,0.1);   color: var(--red);   border-color: rgba(241,76,76,0.3); }
+.s-badge.pushing { background: rgba(79,156,249,0.1);  color: var(--accent);border-color: rgba(79,156,249,0.3); }
+.sdot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+.sdot.pending { background: var(--amber); }
+.sdot.pushed  { background: var(--green); }
+.sdot.error   { background: var(--red); }
+.sdot.pushing { background: var(--accent); animation: blink 0.7s infinite alternate; }
+@keyframes blink { from{opacity:.4} to{opacity:1} }
+
+.error-msg { font-family: var(--mono); font-size: 11px; color: var(--red); margin-top: 8px; padding: 7px 11px; background: rgba(241,76,76,0.07); border-left: 2px solid var(--red); border-radius: 2px; }
+
+/* PUSH ALL BAR */
+.push-bar { display: flex; align-items: center; justify-content: space-between; padding: 13px 20px; border-top: 1px solid var(--border); background: var(--surface2); }
+.push-bar-info { font-family: var(--mono); font-size: 11px; color: var(--dim); }
+.btn-push-all { background: var(--accent-dim); color: var(--accent); border: 1px solid rgba(79,156,249,0.4); font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; padding: 9px 18px; border-radius: 3px; cursor: pointer; transition: all 0.15s; }
+.btn-push-all:hover:not(:disabled) { background: rgba(79,156,249,0.22); }
+.btn-push-all:disabled { opacity: 0.35; cursor: not-allowed; }
+
+/* TOASTS */
+#toasts { position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 8px; z-index: 999; }
+.toast { font-family: var(--mono); font-size: 12px; padding: 11px 15px; border-radius: 3px; border-left: 3px solid; background: var(--surface2); max-width: 380px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); animation: tin 0.2s ease; }
+@keyframes tin { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+.toast.s { border-color: var(--green); color: var(--green); }
+.toast.e { border-color: var(--red);   color: var(--red); }
+.toast.i { border-color: var(--accent);color: var(--accent); }
+
+@media(max-width:700px){
+  .stats { grid-template-columns: 1fr 1fr; }
+  .layout { padding: 16px; }
+  .hdr { padding: 0 16px; }
+}
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <div class="hdr-left">
+    <span class="hdr-mark">IT</span>
+    <span class="hdr-title">WiFi Queue — Tech Panel</span>
+  </div>
+  <div class="hdr-right">
+    {% if meraki_configured %}
+      <span class="meraki-badge ok">● Meraki Configured</span>
+    {% else %}
+      <span class="meraki-badge bad">● Meraki Not Configured</span>
+    {% endif %}
+    <a href="/admin/logout" class="logout-link">Sign Out</a>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- STATS -->
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-val total">{{ requests | length }}</div>
+      <div class="stat-label">Total Requests</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val pending">{{ requests | selectattr('status','eq','pending') | list | length }}</div>
+      <div class="stat-label">Pending</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val pushed">{{ requests | selectattr('status','eq','pushed') | list | length }}</div>
+      <div class="stat-label">Pushed</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val error">{{ requests | selectattr('status','eq','error') | list | length }}</div>
+      <div class="stat-label">Errors</div>
+    </div>
+  </div>
+
+  <!-- QUEUE -->
+  <div class="panel" id="queue-panel">
+    <div class="panel-hdr">
+      <span class="panel-title">Request Queue</span>
+      <button class="refresh-btn" onclick="loadQueue()">↻ Refresh</button>
+    </div>
+
+    <div id="queue-body">
+      {% if not requests %}
+      <div class="empty">NO PENDING REQUESTS<br><span style="color:#1e2a36">Management submits via the main page</span></div>
+      {% else %}
+        {% for r in requests %}
+        <div class="req-row" id="row-{{ r.id }}">
+          <div class="req-top">
+            <div>
+              <div class="req-ssid">{{ r.ssid }}</div>
+              <div class="req-conf">{{ r.conf_name }}</div>
+            </div>
+            <span class="s-badge {{ r.status }}" id="badge-{{ r.id }}">
+              <span class="sdot {{ r.status }}"></span>{{ r.status }}
+            </span>
+          </div>
+          <div class="req-meta">
+            <span class="tag">📅 {{ r.start_date }} → {{ r.end_date }}</span>
+            <span class="tag">🔑 ••••••••</span>
+            {% if r.notes %}<span class="tag">💬 {{ r.notes }}</span>{% endif %}
+            {% if r.pushed_at %}<span class="tag">✓ Pushed {{ r.pushed_at }}</span>{% endif %}
+          </div>
+          <div class="req-actions">
+            <select class="slot-sel" id="slot-{{ r.id }}" {% if r.status != 'pending' %}disabled{% endif %}>
+              <option value="">— Assign SSID slot —</option>
+              {% for i in range(1, 16) %}
+              <option value="{{ i }}" {% if r.slot == i %}selected{% endif %}>
+                {{ "Slot " + i|string }}{% if i <= 2 %} (hotel — avoid){% endif %}
+              </option>
+              {% endfor %}
+            </select>
+            {% if r.status == 'pending' %}
+            <button class="btn btn-push" id="pbtn-{{ r.id }}"
+              onclick="pushOne({{ r.id }})"
+              {% if not r.slot %}disabled{% endif %}>↑ Push to Meraki</button>
+            {% endif %}
+            <button class="btn btn-del" onclick="deleteReq({{ r.id }})">✕ Remove</button>
+          </div>
+          {% if r.error_msg %}
+          <div class="error-msg" id="err-{{ r.id }}">Error: {{ r.error_msg }}</div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      {% endif %}
+    </div>
+
+    {% if requests %}
+    <div class="push-bar">
+      <span class="push-bar-info" id="pending-count">
+        {{ requests | selectattr('status','eq','pending') | list | length }} pending
+      </span>
+      <button class="btn-push-all" id="push-all-btn" onclick="pushAll()"
+        {% if not requests | selectattr('status','eq','pending') | list %}disabled{% endif %}>
+        ↑ Push All Pending
+      </button>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+
+<div id="toasts"></div>
+
+<script>
+// Enable push button when slot selected (for server-rendered rows)
+document.querySelectorAll('.slot-sel').forEach(sel => {
+  sel.addEventListener('change', function() {
+    const id = this.id.replace('slot-', '');
+    const btn = document.getElementById('pbtn-' + id);
+    if (btn) btn.disabled = !this.value;
+  });
+});
+
+async function pushOne(id) {
+  const slot = document.getElementById('slot-' + id)?.value;
+  if (!slot) { toast('Assign a slot first', 'e'); return; }
+
+  setBadge(id, 'pushing');
+  const pbtn = document.getElementById('pbtn-' + id);
+  if (pbtn) pbtn.disabled = true;
+
+  try {
+    const res = await fetch('/admin/push/' + id, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slot: parseInt(slot) })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      setBadge(id, 'pushed');
+      if (pbtn) pbtn.remove();
+      const errEl = document.getElementById('err-' + id);
+      if (errEl) errEl.remove();
+      toast('✓ "' + data.ssid + '" live on Slot ' + data.slot, 's');
+      updateStats();
+    } else {
+      setBadge(id, 'error');
+      if (pbtn) { pbtn.disabled = false; }
+      showErr(id, data.error);
+      toast('Failed: ' + data.error, 'e');
+    }
+  } catch(e) {
+    setBadge(id, 'error');
+    if (pbtn) pbtn.disabled = false;
+    showErr(id, e.message);
+    toast('Network error: ' + e.message, 'e');
+  }
+}
+
+async function pushAll() {
+  const rows = document.querySelectorAll('.req-row');
+  const pending = [];
+  rows.forEach(row => {
+    const id = row.id.replace('row-', '');
+    const badge = document.getElementById('badge-' + id);
+    const slot = document.getElementById('slot-' + id)?.value;
+    if (badge && badge.textContent.includes('pending') && slot) pending.push({ id, slot });
+  });
+  if (!pending.length) { toast('Assign slots to pending requests first', 'e'); return; }
+  toast('Pushing ' + pending.length + ' request' + (pending.length > 1 ? 's' : '') + '…', 'i');
+  for (const p of pending) {
+    await pushOne(parseInt(p.id));
+    await new Promise(r => setTimeout(r, 500));
+  }
+}
+
+async function deleteReq(id) {
+  if (!confirm('Remove this request?')) return;
+  try {
+    await fetch('/admin/delete/' + id, { method: 'POST' });
+    const row = document.getElementById('row-' + id);
+    if (row) row.remove();
+    toast('Request removed', 'i');
+    updateStats();
+  } catch(e) { toast('Error: ' + e.message, 'e'); }
+}
+
+function setBadge(id, status) {
+  const el = document.getElementById('badge-' + id);
+  if (!el) return;
+  el.className = 's-badge ' + status;
+  el.innerHTML = '<span class="sdot ' + status + '"></span>' + status;
+}
+
+function showErr(id, msg) {
+  let el = document.getElementById('err-' + id);
+  if (!el) {
+    el = document.createElement('div');
+    el.className = 'error-msg';
+    el.id = 'err-' + id;
+    document.getElementById('row-' + id)?.appendChild(el);
+  }
+  el.textContent = 'Error: ' + msg;
+}
+
+function updateStats() {
+  // Reload page stats softly
+  const total   = document.querySelectorAll('.req-row').length;
+  const pending = [...document.querySelectorAll('.s-badge')].filter(b => b.textContent.includes('pending')).length;
+  const pushed  = [...document.querySelectorAll('.s-badge')].filter(b => b.textContent.includes('pushed')).length;
+  const errors  = [...document.querySelectorAll('.s-badge')].filter(b => b.textContent.includes('error')).length;
+  document.querySelector('.stat-val.total')  && (document.querySelector('.stat-val.total').textContent   = total);
+  document.querySelector('.stat-val.pending')&& (document.querySelector('.stat-val.pending').textContent = pending);
+  document.querySelector('.stat-val.pushed') && (document.querySelector('.stat-val.pushed').textContent  = pushed);
+  document.querySelector('.stat-val.error')  && (document.querySelector('.stat-val.error').textContent   = errors);
+  const countEl = document.getElementById('pending-count');
+  if (countEl) countEl.textContent = pending + ' pending';
+  const allBtn = document.getElementById('push-all-btn');
+  if (allBtn) allBtn.disabled = pending === 0;
+}
+
+async function loadQueue() {
+  try {
+    const res = await fetch('/admin/status');
+    if (res.ok) location.reload();
+  } catch(e) { toast('Refresh failed', 'e'); }
+}
+
+function toast(msg, type) {
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.textContent = msg;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(() => el.remove(), 4500);
+}
+
+// Auto-refresh every 30s to catch new submissions
+setInterval(async () => {
+  try {
+    const res = await fetch('/admin/status');
+    const data = await res.json();
+    const newPending = data.filter(r => r.status === 'pending').length;
+    const curPending = [...document.querySelectorAll('.s-badge')].filter(b => b.textContent.includes('pending')).length;
+    if (newPending > curPending) {
+      toast('New request received — refreshing…', 'i');
+      setTimeout(() => location.reload(), 1500);
+    }
+  } catch(e) {}
+}, 30000);
+</script>
+</body>
+</html>

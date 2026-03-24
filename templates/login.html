@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IT Admin Login</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0d1117; --surface: #161b22; --surface2: #1c2330;
+  --border: #2a3548; --accent: #4f9cf9; --red: #f14c4c;
+  --text: #cdd9e5; --dim: #768390; --mono: 'IBM Plex Mono', monospace;
+}
+body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+.login-box { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 40px 36px; width: 100%; max-width: 360px; }
+.login-mark { font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); background: rgba(79,156,249,0.1); border: 1px solid rgba(79,156,249,0.25); border-radius: 3px; padding: 4px 10px; display: inline-block; margin-bottom: 24px; }
+h1 { font-size: 20px; font-weight: 500; margin-bottom: 6px; }
+.sub { font-size: 13px; color: var(--dim); margin-bottom: 28px; }
+.field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); }
+input[type=password] { background: var(--bg); border: 1px solid var(--border); color: var(--text); font-family: var(--mono); font-size: 14px; padding: 10px 12px; border-radius: 3px; outline: none; width: 100%; transition: border-color 0.15s; }
+input[type=password]:focus { border-color: var(--accent); }
+.error { background: rgba(241,76,76,0.1); border: 1px solid rgba(241,76,76,0.3); color: var(--red); font-size: 13px; padding: 10px 14px; border-radius: 3px; margin-bottom: 16px; font-family: var(--mono); }
+.btn { background: rgba(79,156,249,0.12); color: var(--accent); border: 1px solid rgba(79,156,249,0.35); font-family: var(--mono); font-size: 12px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; padding: 11px; border-radius: 3px; cursor: pointer; width: 100%; transition: all 0.15s; }
+.btn:hover { background: rgba(79,156,249,0.22); }
+</style>
+</head>
+<body>
+<div class="login-box">
+  <div class="login-mark">IT PORTAL</div>
+  <h1>Tech Panel</h1>
+  <p class="sub">WiFi Queue Admin Access</p>
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+  <form method="POST">
+    <div class="field">
+      <label for="password">Admin Password</label>
+      <input type="password" id="password" name="password" autofocus required>
+    </div>
+    <button type="submit" class="btn">Sign In →</button>
+  </form>
+</div>
+</body>
+</html>
