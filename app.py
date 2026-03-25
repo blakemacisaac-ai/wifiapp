@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from functools import wraps
 from flask import (
     Flask, render_template, request, redirect,
-    url_for, session, jsonify, g
+    url_for, session, jsonify, g, send_file
 )
 
 app = Flask(__name__)
@@ -264,7 +264,7 @@ def submit():
     if not conf_name:      errors.append("Event name is required.")
     if not ssid:           errors.append("Network name is required.")
     if len(ssid) > 32:     errors.append("Network name must be 32 characters or less.")
-    if len(password) < 8:  errors.append("Password must be at least 8 characters.")
+    if not password:       errors.append("Password is required.")
     if not start_date or not end_date: errors.append("Start and end dates are required.")
     if start_date and end_date and end_date < start_date:
         errors.append("End date must be after start date.")
@@ -563,12 +563,12 @@ def admin_history():
 @app.route("/admin/history/export")
 @admin_required
 def export_history():
-    """Export pushed SSIDs for a given month as Excel."""
+    """Export pushed/archived SSIDs for a given month as Excel."""
     import io
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
     from openpyxl.utils import get_column_letter
-    from flask import send_file
+    from datetime import datetime as dt
 
     month = request.args.get("month", "")
     if not month:
@@ -579,7 +579,7 @@ def export_history():
     cur.execute("""
         SELECT
             id, conf_name, ssid, tier, start_date, end_date,
-            notes, slot, pushed_at, disable_at, schedule_status
+            notes, slot, pushed_at, status
         FROM wifi_requests
         WHERE status IN ('pushed','archived')
           AND TO_CHAR(pushed_at, 'YYYY-MM') = %s
@@ -592,137 +592,117 @@ def export_history():
     ws = wb.active
     ws.title = f"WiFi Billing {month}"
 
-    # ── Styles ──────────────────────────────────────────────
-    header_fill   = PatternFill("solid", fgColor="1A1610")
-    header_font   = Font(name="Calibri", bold=True, color="E8CC80", size=11)
-    sub_fill      = PatternFill("solid", fgColor="F2EDE4")
-    sub_font      = Font(name="Calibri", bold=True, color="5A5040", size=10)
-    body_font     = Font(name="Calibri", size=10)
-    alt_fill      = PatternFill("solid", fgColor="FAF7F2")
-    white_fill    = PatternFill("solid", fgColor="FFFFFF")
-    center        = Alignment(horizontal="center", vertical="center")
-    left          = Alignment(horizontal="left",   vertical="center")
-    thin          = Side(style="thin", color="E0D8CC")
-    border        = Border(left=thin, right=thin, top=thin, bottom=thin)
-
+    header_fill = PatternFill("solid", fgColor="1A1610")
+    header_font = Font(name="Calibri", bold=True, color="E8CC80", size=11)
+    body_font   = Font(name="Calibri", size=10)
+    alt_fill    = PatternFill("solid", fgColor="FAF7F2")
+    white_fill  = PatternFill("solid", fgColor="FFFFFF")
+    center      = Alignment(horizontal="center", vertical="center")
+    left        = Alignment(horizontal="left",   vertical="center")
+    thin        = Side(style="thin", color="E0D8CC")
+    border      = Border(left=thin, right=thin, top=thin, bottom=thin)
     tier_colors = {"1": "DBEAFE", "2": "D1FAE5", "3": "FEF3C7"}
     tier_fonts  = {"1": "1D4ED8", "2": "065F46", "3": "92400E"}
 
-    # ── Title row ───────────────────────────────────────────
-    ws.merge_cells("A1:K1")
-    title_cell = ws["A1"]
-    title_cell.value = f"Aqsarniit Hotel & Conference Centre — Conference WiFi Billing Report"
-    title_cell.font  = Font(name="Calibri", bold=True, size=14, color="1A1610")
-    title_cell.fill  = PatternFill("solid", fgColor="E8CC80")
-    title_cell.alignment = center
+    # Title
+    ws.merge_cells("A1:L1")
+    c = ws["A1"]
+    c.value = "Aqsarniit Hotel & Conference Centre — Conference WiFi Billing Report"
+    c.font  = Font(name="Calibri", bold=True, size=14, color="1A1610")
+    c.fill  = PatternFill("solid", fgColor="E8CC80")
+    c.alignment = center
     ws.row_dimensions[1].height = 28
 
-    ws.merge_cells("A2:K2")
-    month_cell = ws["A2"]
-    from datetime import datetime as dt
+    ws.merge_cells("A2:L2")
+    c2 = ws["A2"]
     try:
         month_label = dt.strptime(month, "%Y-%m").strftime("%B %Y")
     except Exception:
         month_label = month
-    month_cell.value = f"Billing Period: {month_label}  |  Generated: {dt.now().strftime('%Y-%m-%d %H:%M')}"
-    month_cell.font  = Font(name="Calibri", size=10, color="5A5040", italic=True)
-    month_cell.fill  = PatternFill("solid", fgColor="FAF7F2")
-    month_cell.alignment = center
+    c2.value = f"Billing Period: {month_label}  |  Generated: {dt.now().strftime('%Y-%m-%d %H:%M')}"
+    c2.font  = Font(name="Calibri", size=10, color="5A5040", italic=True)
+    c2.fill  = PatternFill("solid", fgColor="FAF7F2")
+    c2.alignment = center
     ws.row_dimensions[2].height = 18
 
     ws.append([])  # spacer row 3
 
-    # ── Column headers ───────────────────────────────────────
     headers = ["#", "Conference / Event", "SSID Name", "Tier", "Speed (Mbps)",
                "Start Date", "End Date", "Duration (days)", "SSID Slot",
-               "Pushed At", "Notes"]
+               "Pushed At", "Status", "Notes"]
     ws.append(headers)
-    for col_idx, _ in enumerate(headers, 1):
+    for col_idx in range(1, len(headers) + 1):
         cell = ws.cell(row=4, column=col_idx)
-        cell.font      = header_font
-        cell.fill      = header_fill
+        cell.font = header_font
+        cell.fill = header_fill
         cell.alignment = center
-        cell.border    = border
+        cell.border = border
     ws.row_dimensions[4].height = 20
 
-    # ── Data rows ────────────────────────────────────────────
     for i, r in enumerate(records, 1):
-        tier_key = str(r["tier"] or "1")
+        tier_key  = str(r["tier"] or "1")
         tier_info = TIERS.get(tier_key, TIERS["1"])
-
         try:
-            sd = dt.strptime(r["start_date"], "%Y-%m-%d")
-            ed = dt.strptime(r["end_date"],   "%Y-%m-%d")
+            sd       = dt.strptime(r["start_date"], "%Y-%m-%d")
+            ed       = dt.strptime(r["end_date"],   "%Y-%m-%d")
             duration = (ed - sd).days + 1
         except Exception:
             duration = "—"
 
         pushed_str = r["pushed_at"].strftime("%Y-%m-%d %H:%M") if r["pushed_at"] else ""
+        status_str = r["status"].upper() if r["status"] else ""
 
         row_data = [
-            i,
-            r["conf_name"],
-            r["ssid"],
-            f"Tier {tier_key}",
-            tier_info["mbps"],
-            r["start_date"],
-            r["end_date"],
-            duration,
-            r["slot"],
-            pushed_str,
-            r["notes"] or "",
+            i, r["conf_name"], r["ssid"],
+            f"Tier {tier_key}", tier_info["mbps"],
+            r["start_date"], r["end_date"], duration,
+            r["slot"], pushed_str, status_str, r["notes"] or "",
         ]
-
         row_num = i + 4
         fill = alt_fill if i % 2 == 0 else white_fill
         ws.append(row_data)
 
-        for col_idx, val in enumerate(row_data, 1):
+        for col_idx, _ in enumerate(row_data, 1):
             cell = ws.cell(row=row_num, column=col_idx)
             cell.font      = body_font
             cell.fill      = fill
             cell.border    = border
             cell.alignment = center if col_idx in (1, 4, 5, 8, 9) else left
 
-        # Colour the tier cell
-        tier_cell = ws.cell(row=row_num, column=4)
-        tier_cell.fill = PatternFill("solid", fgColor=tier_colors.get(tier_key, "FFFFFF"))
-        tier_cell.font = Font(name="Calibri", size=10, bold=True,
-                              color=tier_fonts.get(tier_key, "000000"))
+        # Tier colour
+        tc = ws.cell(row=row_num, column=4)
+        tc.fill = PatternFill("solid", fgColor=tier_colors.get(tier_key, "FFFFFF"))
+        tc.font = Font(name="Calibri", size=10, bold=True, color=tier_fonts.get(tier_key, "000000"))
 
-    # ── Summary row ──────────────────────────────────────────
+    # Summary
     summary_row = len(records) + 5
     ws.append([])
     ws.merge_cells(f"A{summary_row}:C{summary_row}")
     ws.cell(row=summary_row, column=1).value = f"Total Records: {len(records)}"
     ws.cell(row=summary_row, column=1).font  = Font(name="Calibri", bold=True, size=10, color="5A5040")
-
     t1 = sum(1 for r in records if str(r["tier"]) == "1")
     t2 = sum(1 for r in records if str(r["tier"]) == "2")
     t3 = sum(1 for r in records if str(r["tier"]) == "3")
-    ws.merge_cells(f"D{summary_row}:K{summary_row}")
+    ws.merge_cells(f"D{summary_row}:L{summary_row}")
     ws.cell(row=summary_row, column=4).value = f"Tier 1: {t1}   |   Tier 2: {t2}   |   Tier 3: {t3}"
     ws.cell(row=summary_row, column=4).font  = Font(name="Calibri", size=10, color="5A5040")
     ws.cell(row=summary_row, column=4).alignment = center
 
-    # ── Column widths ────────────────────────────────────────
-    widths = [5, 32, 24, 10, 14, 13, 13, 16, 11, 18, 30]
+    widths = [5, 32, 24, 10, 14, 13, 13, 16, 11, 18, 10, 28]
     for i, w in enumerate(widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = w
 
-    # ── Freeze panes ─────────────────────────────────────────
     ws.freeze_panes = "A5"
 
     buf = io.BytesIO()
     wb.save(buf)
     buf.seek(0)
 
-    filename = f"wifi_billing_{month}.xlsx"
     return send_file(
         buf,
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         as_attachment=True,
-        download_name=filename
+        download_name=f"wifi_billing_{month}.xlsx"
     )
 
 @app.route("/admin/history/delete/<int:req_id>", methods=["POST"])
