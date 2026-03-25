@@ -19,6 +19,7 @@ MERAKI_API_KEY = os.environ.get("MERAKI_API_KEY", "")
 MERAKI_NET_ID  = os.environ.get("MERAKI_NET_ID", "")
 DATABASE_URL   = os.environ.get("DATABASE_URL", "")
 MERAKI_BASE    = "https://api.meraki.com/api/v1"
+SLACK_WEBHOOK  = os.environ.get("SLACK_WEBHOOK", "")
 
 # Tier → true kbps using 1024-based conversion so Meraki reports exact Mbps
 # 25 Mbps = 25 * 1024 = 25600 kbps, etc.
@@ -92,6 +93,15 @@ def admin_required(f):
             return redirect(url_for("admin_login"))
         return f(*args, **kwargs)
     return decorated
+
+# ── Slack notifications ───────────────────────────────────
+def send_slack(msg):
+    if not SLACK_WEBHOOK:
+        return
+    try:
+        requests.post(SLACK_WEBHOOK, json={"text": msg}, timeout=5)
+    except Exception as e:
+        print(f"[slack] notify failed: {e}")
 
 # ── Meraki helpers ────────────────────────────────────────────
 def meraki_headers():
@@ -271,6 +281,18 @@ def submit():
     )
     db.commit()
     cur.close()
+
+    tier_info = TIERS.get(tier, TIERS["1"])
+    send_slack(
+        f":wifi: *New Conference WiFi Request*\n"
+        f">*Event:* {conf_name}\n"
+        f">*SSID:* `{ssid}`\n"
+        f">*Dates:* {start_date} → {end_date}\n"
+        f">*Tier:* {tier_info['label']} ({tier_info['mbps']} Mbps)\n"
+        f">*Notes:* {notes or '—'}\n"
+        f">_Review it in the <https://web-production-eebee.up.railway.app/admin|IT Admin Panel>_"
+    )
+
     return render_template("request.html", success=True, tiers=TIERS)
 
 # ══════════════════════════════════════════════════════════════
@@ -506,7 +528,7 @@ def admin_history():
             TO_CHAR(pushed_at, 'YYYY-MM') AS month_key,
             TO_CHAR(pushed_at, 'Month YYYY') AS month_label
         FROM wifi_requests
-        WHERE status = 'pushed' AND pushed_at IS NOT NULL
+        WHERE status IN ('pushed','archived') AND pushed_at IS NOT NULL
         ORDER BY month_key DESC
     """)
     months = cur.fetchall()
@@ -523,7 +545,7 @@ def admin_history():
                 id, conf_name, ssid, tier, start_date, end_date,
                 notes, slot, pushed_at, disable_at, schedule_status
             FROM wifi_requests
-            WHERE status = 'pushed'
+            WHERE status IN ('pushed','archived')
               AND TO_CHAR(pushed_at, 'YYYY-MM') = %s
             ORDER BY pushed_at DESC
         """, (selected,))
@@ -559,7 +581,7 @@ def export_history():
             id, conf_name, ssid, tier, start_date, end_date,
             notes, slot, pushed_at, disable_at, schedule_status
         FROM wifi_requests
-        WHERE status = 'pushed'
+        WHERE status IN ('pushed','archived')
           AND TO_CHAR(pushed_at, 'YYYY-MM') = %s
         ORDER BY pushed_at DESC
     """, (month,))

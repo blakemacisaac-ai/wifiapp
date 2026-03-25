@@ -188,6 +188,7 @@ tbody tr:nth-child(even):hover { background: var(--surface2); }
           <th>Duration</th>
           <th>Slot</th>
           <th>Pushed At</th>
+          <th>Status</th>
           <th>Notes</th>
           <th></th>
         </tr>
@@ -214,6 +215,13 @@ tbody tr:nth-child(even):hover { background: var(--surface2); }
           </td>
           <td><span class="slot-badge">{{ r.slot or '—' }}</span></td>
           <td class="date-cell">{{ r.pushed_at.strftime('%b %d, %Y %H:%M') if r.pushed_at else '—' }}</td>
+          <td>
+            {% if r.status == 'archived' %}
+            <span style="font-family:var(--mono);font-size:10px;padding:3px 8px;border-radius:2px;background:rgba(118,131,144,0.1);color:#768390;border:1px solid rgba(118,131,144,0.3)">archived</span>
+            {% else %}
+            <span style="font-family:var(--mono);font-size:10px;padding:3px 8px;border-radius:2px;background:rgba(35,209,139,0.1);color:#23d18b;border:1px solid rgba(35,209,139,0.3)">active</span>
+            {% endif %}
+          </td>
           <td class="notes-cell">{{ r.notes or '—' }}</td>
           <td style="text-align:center">
             <button onclick="deleteRecord({{ r.id }}, '{{ r.ssid }}')"
