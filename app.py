@@ -129,21 +129,37 @@ def push_ssid_to_meraki(row, slot_index):
     tier_key  = str(row.get("tier") or "1")
     tier      = TIERS.get(tier_key, TIERS["1"])
     bw_kbps   = tier["kbps"]
+    url = f"{MERAKI_BASE}/networks/{MERAKI_NET_ID}/wireless/ssids/{slot_index}"
+
+    # Step 1: Configure the SSID fully
     resp = requests.put(
-        f"{MERAKI_BASE}/networks/{MERAKI_NET_ID}/wireless/ssids/{slot_index}",
+        url,
         headers=meraki_headers(),
         json={
-            "name": row["ssid"],
-            "enabled": True,
-            "authMode": "psk",
-            "encryptionMode": "wpa",
-            "wpaEncryptionMode": "WPA2 only",
-            "psk": row["password"],
+            "name":                      row["ssid"],
+            "enabled":                   True,
+            "authMode":                  "psk",
+            "encryptionMode":            "wpa",
+            "wpaEncryptionMode":         "WPA2 only",
+            "psk":                       row["password"],
             "perClientBandwidthLimitUp":   bw_kbps,
             "perClientBandwidthLimitDown": bw_kbps,
         },
         timeout=10
     )
+
+    # Step 2: Explicit enable call — Meraki sometimes ignores enabled:True
+    # on previously-unconfigured slots until a second call is made
+    if resp.status_code == 200:
+        import time; time.sleep(0.5)
+        requests.put(
+            url,
+            headers=meraki_headers(),
+            json={"enabled": True},
+            timeout=10
+        )
+
+    return resp
     return resp
 
 # ══════════════════════════════════════════════════════════════
