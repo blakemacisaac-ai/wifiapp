@@ -514,7 +514,7 @@ def export_history():
     # ── Title row ───────────────────────────────────────────
     ws.merge_cells("A1:K1")
     title_cell = ws["A1"]
-    title_cell.value = f"Aqsarniit Hotel — Conference WiFi Billing Report"
+    title_cell.value = f"Aqsarniit Hotel & Conference Centre — Conference WiFi Billing Report"
     title_cell.font  = Font(name="Calibri", bold=True, size=14, color="1A1610")
     title_cell.fill  = PatternFill("solid", fgColor="E8CC80")
     title_cell.alignment = center
