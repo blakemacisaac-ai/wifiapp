@@ -562,53 +562,71 @@ def admin_history():
 
 
 def generate_pdf_buffer(month, records, month_label):
-    """Shared PDF generator used by both export and Slack routes."""
+    """Shared PDF generator — uses fpdf2 (no system font dependencies)."""
     import io
+    from fpdf import FPDF
     from datetime import datetime as dt
-    from reportlab.lib.pagesizes import letter, landscape
-    from reportlab.lib import colors
-    from reportlab.lib.units import inch
-    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-    from reportlab.lib.styles import ParagraphStyle
-    from reportlab.lib.enums import TA_CENTER
 
-    dark_green = colors.HexColor("#1e3a2a")
-    mid_green  = colors.HexColor("#2d5a3d")
-    accent     = colors.HexColor("#4a8c5c")
-    white      = colors.white
-    grey_row   = colors.HexColor("#f5f9f6")
-    red_row    = colors.HexColor("#fff0f0")
-    tier_c     = {"1": colors.HexColor("#dbeafe"),
-                  "2": colors.HexColor("#d1fae5"),
-                  "3": colors.HexColor("#fef3c7")}
+    DARK  = (30,  58,  42)
+    MID   = (45,  90,  61)
+    LIGHT = (232, 245, 236)
+    WHITE = (255, 255, 255)
+    GREY  = (245, 249, 246)
+    RED   = (255, 240, 240)
+    T1    = (219, 234, 254)
+    T2    = (209, 250, 229)
+    T3    = (254, 243, 199)
+    DIM   = (118, 131, 144)
 
-    buf = io.BytesIO()
-    doc = SimpleDocTemplate(buf, pagesize=landscape(letter),
-        leftMargin=0.5*inch, rightMargin=0.5*inch,
-        topMargin=0.5*inch,  bottomMargin=0.5*inch)
+    pdf = FPDF(orientation="L", unit="mm", format="A4")
+    pdf.set_auto_page_break(auto=True, margin=10)
+    pdf.add_page()
+    pdf.set_margins(12, 10, 12)
 
-    title_style = ParagraphStyle("t", fontSize=18, textColor=dark_green,
-                                 fontName="Helvetica-Bold", spaceAfter=2)
-    sub_style   = ParagraphStyle("s", fontSize=10, textColor=mid_green,
-                                 fontName="Helvetica", spaceAfter=2)
-    meta_style  = ParagraphStyle("m", fontSize=8,  textColor=colors.grey,
-                                 fontName="Helvetica")
+    # ── Header ──────────────────────────────────────────────
+    pdf.set_fill_color(*DARK)
+    pdf.rect(0, 0, 297, 18, "F")
+    pdf.set_font("Helvetica", "B", 13)
+    pdf.set_text_color(*WHITE)
+    pdf.set_xy(12, 3)
+    pdf.cell(0, 8, "Aqsarniit Hotel & Conference Centre", ln=False)
+    pdf.set_font("Helvetica", "", 9)
+    pdf.set_text_color(180, 200, 190)
+    pdf.set_xy(12, 11)
+    pdf.cell(0, 5, f"Wi-Fi Billing Report  |  {month_label}  |  Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}  |  {len(records)} record(s)")
 
-    story = []
-    story.append(Paragraph("Aqsarniit Hotel &amp; Conference Centre", title_style))
-    story.append(Paragraph(f"Wi-Fi Request Billing Report — {month_label}", sub_style))
-    story.append(Paragraph(
-        f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}  |  Records: {len(records)}",
-        meta_style))
-    story.append(Spacer(1, 0.2*inch))
+    pdf.set_y(22)
 
-    col_headers = ["Organization / Group", "SSID", "Tier", "Speed",
-                   "Start Date", "End Date", "Days", "Status"]
-    col_widths  = [2.4*inch, 1.8*inch, 0.7*inch, 0.7*inch,
-                   1.0*inch, 1.0*inch, 0.55*inch, 0.85*inch]
-    table_data  = [col_headers]
+    # ── Column definitions ───────────────────────────────────
+    cols = [
+        ("Organization / Group", 64),
+        ("SSID",                 44),
+        ("Tier",                 18),
+        ("Speed",                18),
+        ("Start Date",           28),
+        ("End Date",             28),
+        ("Days",                 14),
+        ("Status",               22),
+    ]
+    row_h = 8
 
-    for r in records:
+    # ── Column header row ────────────────────────────────────
+    pdf.set_fill_color(*DARK)
+    pdf.set_text_color(*WHITE)
+    pdf.set_font("Helvetica", "B", 8)
+    for label, w in cols:
+        pdf.cell(w, 7, label, border=0, align="C", fill=True)
+    pdf.ln()
+
+    # ── Green underline ──────────────────────────────────────
+    pdf.set_fill_color(*MID)
+    pdf.rect(pdf.get_x(), pdf.get_y(), sum(w for _, w in cols), 1, "F")
+    pdf.ln(1)
+
+    # ── Data rows ────────────────────────────────────────────
+    tier_colors = {"1": T1, "2": T2, "3": T3}
+
+    for i, r in enumerate(records):
         tk   = str(r["tier"] or "1")
         mbps = TIERS.get(tk, TIERS["1"])["mbps"]
         try:
@@ -620,56 +638,43 @@ def generate_pdf_buffer(month, records, month_label):
         except Exception:
             sd_fmt = str(r["start_date"])
             ed_fmt = str(r["end_date"])
-            dur    = "—"
-        table_data.append([
-            r["conf_name"] or "",
-            r["ssid"] or "",
+            dur    = "-"
+
+        status = str(r.get("status") or "pushed").upper()
+        is_arch = status == "ARCHIVED"
+        base_fill = RED if is_arch else (GREY if i % 2 == 0 else WHITE)
+
+        row_data = [
+            (r["conf_name"] or "")[:38],
+            (r["ssid"] or "")[:24],
             f"Tier {tk}",
             f"{mbps} Mbps",
-            sd_fmt, ed_fmt, dur,
-            (r["status"] or "").upper(),
-        ])
+            sd_fmt, ed_fmt, dur, status,
+        ]
 
-    tbl = Table(table_data, colWidths=col_widths, repeatRows=1)
-    style_cmds = [
-        ("BACKGROUND",    (0,0), (-1,0), dark_green),
-        ("TEXTCOLOR",     (0,0), (-1,0), white),
-        ("FONTNAME",      (0,0), (-1,0), "Helvetica-Bold"),
-        ("FONTSIZE",      (0,0), (-1,0), 9),
-        ("ALIGN",         (0,0), (-1,0), "CENTER"),
-        ("BOTTOMPADDING", (0,0), (-1,0), 8),
-        ("TOPPADDING",    (0,0), (-1,0), 8),
-        ("FONTNAME",      (0,1), (-1,-1), "Helvetica"),
-        ("FONTSIZE",      (0,1), (-1,-1), 9),
-        ("ALIGN",         (2,1), (-1,-1), "CENTER"),
-        ("ALIGN",         (0,1), (1,-1),  "LEFT"),
-        ("TOPPADDING",    (0,1), (-1,-1), 6),
-        ("BOTTOMPADDING", (0,1), (-1,-1), 6),
-        ("LEFTPADDING",   (0,0), (-1,-1), 6),
-        ("RIGHTPADDING",  (0,0), (-1,-1), 6),
-        ("GRID",          (0,0), (-1,-1), 0.4, colors.HexColor("#c8d8cc")),
-        ("LINEBELOW",     (0,0), (-1,0),  1.2, accent),
-    ]
-    for i, r in enumerate(records, 1):
-        tk   = str(r["tier"] or "1")
-        fill = red_row if str(r.get("status","")) == "archived" else                (grey_row if i % 2 == 0 else white)
-        style_cmds.append(("BACKGROUND", (0,i), (-1,i), fill))
-        style_cmds.append(("BACKGROUND", (2,i), (2,i), tier_c.get(tk, white)))
-    tbl.setStyle(TableStyle(style_cmds))
-    story.append(tbl)
+        pdf.set_font("Helvetica", "", 8)
+        pdf.set_text_color(30, 40, 35)
 
-    story.append(Spacer(1, 0.15*inch))
+        for ci, ((label, w), val) in enumerate(zip(cols, row_data)):
+            is_tier = (ci == 2)
+            fill_c  = tier_colors.get(tk, WHITE) if is_tier else base_fill
+            pdf.set_fill_color(*fill_c)
+            align = "C" if ci in (2, 3, 6, 7) else "L"
+            pdf.cell(w, row_h, val, border="B", align=align, fill=True)
+        pdf.ln()
+
+    # ── Summary bar ──────────────────────────────────────────
+    pdf.ln(3)
+    pdf.set_fill_color(*LIGHT)
+    pdf.set_text_color(*DARK)
+    pdf.set_font("Helvetica", "B", 8)
     t1 = sum(1 for r in records if str(r["tier"]) == "1")
     t2 = sum(1 for r in records if str(r["tier"]) == "2")
     t3 = sum(1 for r in records if str(r["tier"]) == "3")
-    story.append(Paragraph(
-        f"Tier 1 — Standard (25 Mbps): <b>{t1}</b> &nbsp;&nbsp;|&nbsp;&nbsp; "
-        f"Tier 2 — Enhanced (50 Mbps): <b>{t2}</b> &nbsp;&nbsp;|&nbsp;&nbsp; "
-        f"Tier 3 — Premium (100 Mbps): <b>{t3}</b>",
-        ParagraphStyle("sum", fontSize=8, textColor=colors.grey,
-                       fontName="Helvetica", alignment=TA_CENTER)
-    ))
-    doc.build(story)
+    summary = f"Total: {len(records)}   |   Tier 1 (25 Mbps): {t1}   |   Tier 2 (50 Mbps): {t2}   |   Tier 3 (100 Mbps): {t3}"
+    pdf.cell(0, 7, summary, align="C", fill=True, border=0)
+
+    buf = io.BytesIO(pdf.output())
     buf.seek(0)
     return buf
 
