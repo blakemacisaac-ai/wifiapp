@@ -554,8 +554,8 @@ def export_history():
         tier_info = TIERS.get(tier_key, TIERS["1"])
 
         try:
-            sd = datetime.strptime(r["start_date"], "%Y-%m-%d")
-            ed = datetime.strptime(r["end_date"],   "%Y-%m-%d")
+            sd = dt.strptime(r["start_date"], "%Y-%m-%d")
+            ed = dt.strptime(r["end_date"],   "%Y-%m-%d")
             duration = (ed - sd).days + 1
         except Exception:
             duration = "—"
@@ -627,6 +627,17 @@ def export_history():
         as_attachment=True,
         download_name=filename
     )
+
+@app.route("/admin/history/delete/<int:req_id>", methods=["POST"])
+@admin_required
+def delete_history_record(req_id):
+    """Hard delete a billing record — only use for mistakes/test data."""
+    db = get_db()
+    cur = db.cursor()
+    cur.execute("DELETE FROM wifi_requests WHERE id=%s", (req_id,))
+    db.commit()
+    cur.close()
+    return jsonify({"ok": True})
 
 # ── Boot ──────────────────────────────────────────────────────
 init_db()

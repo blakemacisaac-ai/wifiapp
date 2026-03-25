@@ -189,6 +189,7 @@ tbody tr:nth-child(even):hover { background: var(--surface2); }
           <th>Slot</th>
           <th>Pushed At</th>
           <th>Notes</th>
+          <th></th>
         </tr>
       </thead>
       <tbody>
@@ -214,6 +215,12 @@ tbody tr:nth-child(even):hover { background: var(--surface2); }
           <td><span class="slot-badge">{{ r.slot or '—' }}</span></td>
           <td class="date-cell">{{ r.pushed_at.strftime('%b %d, %Y %H:%M') if r.pushed_at else '—' }}</td>
           <td class="notes-cell">{{ r.notes or '—' }}</td>
+          <td style="text-align:center">
+            <button onclick="deleteRecord({{ r.id }}, '{{ r.ssid }}')"
+              style="background:transparent;border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:10px;padding:4px 9px;border-radius:2px;cursor:pointer;transition:all 0.15s"
+              onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'"
+              onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">✕</button>
+          </td>
         </tr>
         {% endfor %}
       </tbody>
@@ -227,5 +234,29 @@ tbody tr:nth-child(even):hover { background: var(--surface2); }
   {% endif %}
 
 </div>
+<script>
+async function deleteRecord(id, ssid) {
+  if (!confirm('Delete record for "' + ssid + '"?\nThis cannot be undone.')) return;
+  try {
+    const res  = await fetch('/admin/history/delete/' + id, { method: 'POST' });
+    const data = await res.json();
+    if (data.ok) {
+      // Remove the row from the table
+      const rows = document.querySelectorAll('tbody tr');
+      rows.forEach(row => {
+        if (row.querySelector('button') && row.querySelector('button').getAttribute('onclick').includes('(' + id + ',')) {
+          row.remove();
+        }
+      });
+      // Update record count in header
+      const countEl = document.querySelector('.panel-title');
+      if (countEl) {
+        const remaining = document.querySelectorAll('tbody tr').length;
+        countEl.textContent = countEl.textContent.replace(/\d+ record/, remaining + ' record');
+      }
+    }
+  } catch(e) { alert('Error: ' + e.message); }
+}
+</script>
 </body>
 </html>
