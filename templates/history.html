@@ -17,54 +17,42 @@
 }
 body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
 
-/* HEADER */
 .hdr { background: var(--surface); border-bottom: 1px solid var(--border); height: 52px; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; position: sticky; top: 0; z-index: 50; }
 .hdr-left { display: flex; align-items: center; gap: 10px; }
 .hdr-mark { font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; background: var(--accent-dim); border: 1px solid rgba(79,156,249,0.3); border-radius: 3px; padding: 3px 9px; color: var(--accent); }
 .hdr-title { font-family: var(--mono); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); }
-.hdr-right { display: flex; align-items: center; gap: 12px; }
-.back-link { font-family: var(--mono); font-size: 11px; color: var(--dim); text-decoration: none; transition: color 0.15s; }
-.back-link:hover { color: var(--accent); }
 .logout-link { font-family: var(--mono); font-size: 11px; color: var(--muted); text-decoration: none; }
 .logout-link:hover { color: var(--red); }
 
-/* TABS */
 .tabs { display: flex; border-bottom: 1px solid var(--border); background: var(--surface); padding: 0 24px; }
-.tab { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; padding: 14px 16px; cursor: pointer; color: var(--dim); border-bottom: 2px solid transparent; margin-bottom: -1px; text-decoration: none; transition: all 0.15s; display: block; }
+.tab { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; padding: 14px 16px; cursor: pointer; color: var(--dim); border-bottom: 2px solid transparent; margin-bottom: -1px; text-decoration: none; display: block; transition: all 0.15s; }
 .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
 .tab:hover:not(.active) { color: var(--text); }
 
-/* LAYOUT */
 .layout { max-width: 1200px; margin: 0 auto; padding: 28px 24px; }
 
-/* MONTH SELECTOR BAR */
-.month-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
-.month-bar-left { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.month-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); }
-.month-pill {
-  font-family: var(--mono); font-size: 11px; padding: 6px 14px; border-radius: 3px;
-  border: 1px solid var(--border); color: var(--dim); text-decoration: none;
-  transition: all 0.15s; background: var(--surface);
-}
-.month-pill:hover { border-color: var(--accent); color: var(--accent); }
-.month-pill.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+/* MONTH SELECTOR */
+.top-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+.month-selector { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.month-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); margin-right: 4px; }
+.month-btn { font-family: var(--mono); font-size: 11px; padding: 6px 14px; border-radius: 3px; border: 1px solid var(--border); color: var(--dim); text-decoration: none; background: var(--surface); transition: all 0.15s; cursor: pointer; }
+.month-btn:hover { border-color: var(--accent); color: var(--accent); }
+.month-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
 .no-months { font-family: var(--mono); font-size: 12px; color: var(--muted); }
 
-/* EXPORT BTN */
-.btn-export {
-  font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
-  text-transform: uppercase; padding: 9px 18px; border-radius: 3px; cursor: pointer;
-  text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
-  background: rgba(201,168,76,0.12); color: var(--gold);
-  border: 1px solid rgba(201,168,76,0.4); transition: all 0.15s;
-}
-.btn-export:hover { background: rgba(201,168,76,0.22); }
+/* ACTION BUTTONS */
+.action-btns { display: flex; gap: 10px; align-items: center; }
+.btn-pdf { font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; padding: 9px 18px; border-radius: 3px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; background: rgba(201,168,76,0.12); color: var(--gold); border: 1px solid rgba(201,168,76,0.4); transition: all 0.15s; }
+.btn-pdf:hover { background: rgba(201,168,76,0.22); }
+.btn-slack { font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; padding: 9px 18px; border-radius: 3px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; background: rgba(74,144,226,0.12); color: #7aa5f0; border: 1px solid rgba(74,144,226,0.4); transition: all 0.15s; }
+.btn-slack:hover { background: rgba(74,144,226,0.22); }
+.btn-slack:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* SUMMARY CARDS */
-.summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
-.sum-card { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 16px 18px; }
-.sum-val { font-family: var(--mono); font-size: 26px; font-weight: 600; line-height: 1; margin-bottom: 6px; }
-.sum-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); }
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+.stat { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 16px 18px; }
+.stat-val { font-family: var(--mono); font-size: 26px; font-weight: 600; line-height: 1; margin-bottom: 6px; }
+.stat-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); }
 
 /* TABLE */
 .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
@@ -82,23 +70,29 @@ tbody tr:nth-child(even):hover { background: var(--surface2); }
 
 .ssid-cell { font-family: var(--mono); font-size: 13px; font-weight: 500; color: #fff; }
 .conf-cell { font-size: 12px; color: var(--dim); margin-top: 2px; }
-
 .tier-badge { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: 0.06em; padding: 3px 9px; border-radius: 2px; border: 1px solid; white-space: nowrap; }
 .tier-badge.t1 { color: var(--t1); border-color: rgba(96,165,250,0.3);  background: rgba(96,165,250,0.1); }
 .tier-badge.t2 { color: var(--t2); border-color: rgba(52,211,153,0.3);  background: rgba(52,211,153,0.1); }
 .tier-badge.t3 { color: var(--t3); border-color: rgba(245,158,11,0.3);  background: rgba(245,158,11,0.1); }
-
-.slot-badge { font-family: var(--mono); font-size: 11px; color: var(--muted); background: var(--bg); border: 1px solid var(--border); padding: 2px 8px; border-radius: 2px; }
+.status-badge { font-family: var(--mono); font-size: 10px; padding: 3px 8px; border-radius: 2px; border: 1px solid; }
+.status-badge.pushed   { color: var(--green); border-color: rgba(35,209,139,0.3); background: rgba(35,209,139,0.08); }
+.status-badge.archived { color: var(--dim);   border-color: var(--border); background: var(--bg); }
 .date-cell { font-family: var(--mono); font-size: 11px; color: var(--dim); white-space: nowrap; }
-.notes-cell { font-size: 12px; color: var(--muted); max-width: 200px; }
+.notes-cell { font-size: 12px; color: var(--muted); max-width: 180px; }
+.del-btn { background: transparent; border: 1px solid var(--border); color: var(--muted); font-family: var(--mono); font-size: 10px; padding: 4px 9px; border-radius: 2px; cursor: pointer; transition: all 0.15s; }
+.del-btn:hover { border-color: var(--red); color: var(--red); }
 
 .empty-state { padding: 64px 24px; text-align: center; font-family: var(--mono); font-size: 12px; color: var(--muted); letter-spacing: 0.06em; line-height: 2; }
 
-@media(max-width:700px) {
-  .summary-grid { grid-template-columns: 1fr 1fr; }
-  .layout { padding: 14px; }
-  td, th { padding: 9px 10px; }
-}
+/* TOASTS */
+#toasts { position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 8px; z-index: 999; }
+.toast { font-family: var(--mono); font-size: 12px; padding: 11px 15px; border-radius: 3px; border-left: 3px solid; background: var(--surface2); max-width: 380px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); animation: tin 0.2s ease; }
+@keyframes tin { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+.toast.s { border-color: var(--green); color: var(--green); }
+.toast.e { border-color: var(--red);   color: var(--red); }
+.toast.i { border-color: var(--accent);color: var(--accent); }
+
+@media(max-width:700px) { .stats{grid-template-columns:1fr 1fr} .layout{padding:14px} }
 </style>
 </head>
 <body>
@@ -108,9 +102,7 @@ tbody tr:nth-child(even):hover { background: var(--surface2); }
     <span class="hdr-mark">IT</span>
     <span class="hdr-title">Billing History</span>
   </div>
-  <div class="hdr-right">
-    <a href="/admin/logout" class="logout-link">Sign Out</a>
-  </div>
+  <a href="/admin/logout" class="logout-link">Sign Out</a>
 </header>
 
 <div class="tabs">
@@ -121,25 +113,31 @@ tbody tr:nth-child(even):hover { background: var(--surface2); }
 
 <div class="layout">
 
-  <!-- MONTH SELECTOR -->
-  <div class="month-bar">
-    <div class="month-bar-left">
+  <!-- TOP BAR: month selector + actions -->
+  <div class="top-bar">
+    <div class="month-selector">
       <span class="month-label">Period:</span>
       {% if months %}
         {% for m in months %}
         <a href="/admin/history?month={{ m.month_key }}"
-           class="month-pill {% if m.month_key == selected %}active{% endif %}">
+           class="month-btn {% if m.month_key == selected %}active{% endif %}">
           {{ m.month_label | trim }}
         </a>
         {% endfor %}
       {% else %}
-        <span class="no-months">No billing history yet — push some SSIDs first.</span>
+        <span class="no-months">No billing history yet.</span>
       {% endif %}
     </div>
+
     {% if selected and records %}
-    <a href="/admin/history/export?month={{ selected }}" class="btn-export">
-      ↓ Export PDF
-    </a>
+    <div class="action-btns">
+      <a href="/admin/history/export?month={{ selected }}" class="btn-pdf">
+        ↓ Download PDF
+      </a>
+      <button class="btn-slack" id="slackBtn" onclick="sendToSlack('{{ selected }}')">
+        ✈ Send to Slack
+      </button>
+    </div>
     {% endif %}
   </div>
 
@@ -149,23 +147,11 @@ tbody tr:nth-child(even):hover { background: var(--surface2); }
   {% set t1_count = records | selectattr('tier', 'equalto', '1') | list | length %}
   {% set t2_count = records | selectattr('tier', 'equalto', '2') | list | length %}
   {% set t3_count = records | selectattr('tier', 'equalto', '3') | list | length %}
-  <div class="summary-grid">
-    <div class="sum-card">
-      <div class="sum-val" style="color:var(--accent)">{{ records | length }}</div>
-      <div class="sum-label">Total SSIDs</div>
-    </div>
-    <div class="sum-card">
-      <div class="sum-val" style="color:var(--t1)">{{ t1_count }}</div>
-      <div class="sum-label">Tier 1 · 25 Mbps</div>
-    </div>
-    <div class="sum-card">
-      <div class="sum-val" style="color:var(--t2)">{{ t2_count }}</div>
-      <div class="sum-label">Tier 2 · 50 Mbps</div>
-    </div>
-    <div class="sum-card">
-      <div class="sum-val" style="color:var(--t3)">{{ t3_count }}</div>
-      <div class="sum-label">Tier 3 · 100 Mbps</div>
-    </div>
+  <div class="stats">
+    <div class="stat"><div class="stat-val" style="color:var(--accent)">{{ records | length }}</div><div class="stat-label">Total SSIDs</div></div>
+    <div class="stat"><div class="stat-val" style="color:var(--t1)">{{ t1_count }}</div><div class="stat-label">Tier 1 · 25 Mbps</div></div>
+    <div class="stat"><div class="stat-val" style="color:var(--t2)">{{ t2_count }}</div><div class="stat-label">Tier 2 · 50 Mbps</div></div>
+    <div class="stat"><div class="stat-val" style="color:var(--t3)">{{ t3_count }}</div><div class="stat-label">Tier 3 · 100 Mbps</div></div>
   </div>
 
   <!-- TABLE -->
@@ -180,54 +166,42 @@ tbody tr:nth-child(even):hover { background: var(--surface2); }
       <thead>
         <tr>
           <th>#</th>
-          <th>SSID / Conference</th>
+          <th>SSID / Organization</th>
           <th>Tier</th>
           <th>Speed</th>
           <th>Start Date</th>
           <th>End Date</th>
-          <th>Duration</th>
-          <th>Slot</th>
-          <th>Pushed At</th>
+          <th>Days</th>
           <th>Status</th>
+          <th>Pushed At</th>
           <th>Notes</th>
           <th></th>
         </tr>
       </thead>
-      <tbody>
+      <tbody id="records-tbody">
         {% for r in records %}
         {% set t = r.tier or '1' %}
         {% set tier_info = tiers[t] %}
-        <tr>
+        <tr id="rec-{{ r.id }}">
           <td style="font-family:var(--mono);font-size:11px;color:var(--muted)">{{ loop.index }}</td>
           <td>
             <div class="ssid-cell">{{ r.ssid }}</div>
             <div class="conf-cell">{{ r.conf_name }}</div>
           </td>
           <td><span class="tier-badge t{{ t }}">Tier {{ t }}</span></td>
-          <td style="font-family:var(--mono);font-size:12px;color:var(--text)">{{ tier_info.mbps }} Mbps</td>
+          <td style="font-family:var(--mono);font-size:12px">{{ tier_info.mbps }} Mbps</td>
           <td class="date-cell">{{ r.start_date }}</td>
           <td class="date-cell">{{ r.end_date }}</td>
-          <td style="font-family:var(--mono);font-size:11px;color:var(--dim)">
-            {% if r.start_date and r.end_date %}
-              {% set days = ((r.end_date | string | replace('-','') | int) - (r.start_date | string | replace('-','') | int)) %}
-              {{ (r.end_date[:4]|int * 365 + r.end_date[5:7]|int * 30 + r.end_date[8:10]|int) - (r.start_date[:4]|int * 365 + r.start_date[5:7]|int * 30 + r.start_date[8:10]|int) + 1 }} days
-            {% endif %}
+          <td style="font-family:var(--mono);font-size:11px;color:var(--dim);text-align:center">
+            {{ (r.end_date[:4]|int * 365 + r.end_date[5:7]|int * 30 + r.end_date[8:10]|int) - (r.start_date[:4]|int * 365 + r.start_date[5:7]|int * 30 + r.start_date[8:10]|int) + 1 }}
           </td>
-          <td><span class="slot-badge">{{ r.slot or '—' }}</span></td>
-          <td class="date-cell">{{ r.pushed_at.strftime('%b %d, %Y %H:%M') if r.pushed_at else '—' }}</td>
           <td>
-            {% if r.status == 'archived' %}
-            <span style="font-family:var(--mono);font-size:10px;padding:3px 8px;border-radius:2px;background:rgba(118,131,144,0.1);color:#768390;border:1px solid rgba(118,131,144,0.3)">archived</span>
-            {% else %}
-            <span style="font-family:var(--mono);font-size:10px;padding:3px 8px;border-radius:2px;background:rgba(35,209,139,0.1);color:#23d18b;border:1px solid rgba(35,209,139,0.3)">active</span>
-            {% endif %}
+            <span class="status-badge {{ r.status or 'pushed' }}">{{ (r.status or 'pushed').upper() }}</span>
           </td>
+          <td class="date-cell">{{ r.pushed_at.strftime('%b %d, %Y %H:%M') if r.pushed_at else '—' }}</td>
           <td class="notes-cell">{{ r.notes or '—' }}</td>
-          <td style="text-align:center">
-            <button onclick="deleteRecord({{ r.id }}, '{{ r.ssid }}')"
-              style="background:transparent;border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:10px;padding:4px 9px;border-radius:2px;cursor:pointer;transition:all 0.15s"
-              onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'"
-              onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">✕</button>
+          <td>
+            <button class="del-btn" onclick="deleteRecord({{ r.id }}, '{{ r.ssid }}')">✕</button>
           </td>
         </tr>
         {% endfor %}
@@ -236,34 +210,52 @@ tbody tr:nth-child(even):hover { background: var(--surface2); }
   </div>
 
   {% elif selected %}
-  <div class="panel">
-    <div class="empty-state">NO RECORDS FOR THIS PERIOD</div>
-  </div>
+  <div class="panel"><div class="empty-state">NO RECORDS FOR THIS PERIOD</div></div>
   {% endif %}
 
 </div>
+
+<div id="toasts"></div>
+
 <script>
+async function sendToSlack(month) {
+  const btn = document.getElementById('slackBtn');
+  btn.disabled = true;
+  btn.textContent = '…Sending';
+  try {
+    const res  = await fetch('/admin/history/slack', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({month})
+    });
+    const data = await res.json();
+    if (data.ok) {
+      toast(data.method === 'file' ? '✓ PDF sent to Slack' : '✓ Report link sent to Slack', 's');
+    } else {
+      toast('Slack error: ' + data.error, 'e');
+    }
+  } catch(e) { toast('Error: ' + e.message, 'e'); }
+  btn.disabled = false;
+  btn.textContent = '✈ Send to Slack';
+}
+
 async function deleteRecord(id, ssid) {
   if (!confirm('Delete record for "' + ssid + '"?\nThis cannot be undone.')) return;
   try {
-    const res  = await fetch('/admin/history/delete/' + id, { method: 'POST' });
+    const res  = await fetch('/admin/history/delete/' + id, {method: 'POST'});
     const data = await res.json();
     if (data.ok) {
-      // Remove the row from the table
-      const rows = document.querySelectorAll('tbody tr');
-      rows.forEach(row => {
-        if (row.querySelector('button') && row.querySelector('button').getAttribute('onclick').includes('(' + id + ',')) {
-          row.remove();
-        }
-      });
-      // Update record count in header
-      const countEl = document.querySelector('.panel-title');
-      if (countEl) {
-        const remaining = document.querySelectorAll('tbody tr').length;
-        countEl.textContent = countEl.textContent.replace(/\d+ record/, remaining + ' record');
-      }
+      document.getElementById('rec-' + id)?.remove();
+      toast('Record deleted', 'i');
     }
-  } catch(e) { alert('Error: ' + e.message); }
+  } catch(e) { toast('Error: ' + e.message, 'e'); }
+}
+
+function toast(msg, type) {
+  const el = document.createElement('div');
+  el.className = 'toast ' + type; el.textContent = msg;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(() => el.remove(), 4500);
 }
 </script>
 </body>

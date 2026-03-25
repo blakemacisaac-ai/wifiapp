@@ -560,22 +560,125 @@ def admin_history():
         tiers=TIERS
     )
 
-@app.route("/admin/history/export")
-@admin_required
-def export_history():
+
+def generate_pdf_buffer(month, records, month_label):
+    """Shared PDF generator used by both export and Slack routes."""
     import io
     from datetime import datetime as dt
     from reportlab.lib.pagesizes import letter, landscape
     from reportlab.lib import colors
     from reportlab.lib.units import inch
     from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.lib.enums import TA_CENTER, TA_LEFT
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER
 
+    dark_green = colors.HexColor("#1e3a2a")
+    mid_green  = colors.HexColor("#2d5a3d")
+    accent     = colors.HexColor("#4a8c5c")
+    white      = colors.white
+    grey_row   = colors.HexColor("#f5f9f6")
+    red_row    = colors.HexColor("#fff0f0")
+    tier_c     = {"1": colors.HexColor("#dbeafe"),
+                  "2": colors.HexColor("#d1fae5"),
+                  "3": colors.HexColor("#fef3c7")}
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=landscape(letter),
+        leftMargin=0.5*inch, rightMargin=0.5*inch,
+        topMargin=0.5*inch,  bottomMargin=0.5*inch)
+
+    title_style = ParagraphStyle("t", fontSize=18, textColor=dark_green,
+                                 fontName="Helvetica-Bold", spaceAfter=2)
+    sub_style   = ParagraphStyle("s", fontSize=10, textColor=mid_green,
+                                 fontName="Helvetica", spaceAfter=2)
+    meta_style  = ParagraphStyle("m", fontSize=8,  textColor=colors.grey,
+                                 fontName="Helvetica")
+
+    story = []
+    story.append(Paragraph("Aqsarniit Hotel &amp; Conference Centre", title_style))
+    story.append(Paragraph(f"Wi-Fi Request Billing Report — {month_label}", sub_style))
+    story.append(Paragraph(
+        f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}  |  Records: {len(records)}",
+        meta_style))
+    story.append(Spacer(1, 0.2*inch))
+
+    col_headers = ["Organization / Group", "SSID", "Tier", "Speed",
+                   "Start Date", "End Date", "Days", "Status"]
+    col_widths  = [2.4*inch, 1.8*inch, 0.7*inch, 0.7*inch,
+                   1.0*inch, 1.0*inch, 0.55*inch, 0.85*inch]
+    table_data  = [col_headers]
+
+    for r in records:
+        tk   = str(r["tier"] or "1")
+        mbps = TIERS.get(tk, TIERS["1"])["mbps"]
+        try:
+            sd  = dt.strptime(str(r["start_date"]), "%Y-%m-%d")
+            ed  = dt.strptime(str(r["end_date"]),   "%Y-%m-%d")
+            dur = str((ed - sd).days + 1)
+            sd_fmt = sd.strftime("%b %d, %Y")
+            ed_fmt = ed.strftime("%b %d, %Y")
+        except Exception:
+            sd_fmt = str(r["start_date"])
+            ed_fmt = str(r["end_date"])
+            dur    = "—"
+        table_data.append([
+            r["conf_name"] or "",
+            r["ssid"] or "",
+            f"Tier {tk}",
+            f"{mbps} Mbps",
+            sd_fmt, ed_fmt, dur,
+            (r["status"] or "").upper(),
+        ])
+
+    tbl = Table(table_data, colWidths=col_widths, repeatRows=1)
+    style_cmds = [
+        ("BACKGROUND",    (0,0), (-1,0), dark_green),
+        ("TEXTCOLOR",     (0,0), (-1,0), white),
+        ("FONTNAME",      (0,0), (-1,0), "Helvetica-Bold"),
+        ("FONTSIZE",      (0,0), (-1,0), 9),
+        ("ALIGN",         (0,0), (-1,0), "CENTER"),
+        ("BOTTOMPADDING", (0,0), (-1,0), 8),
+        ("TOPPADDING",    (0,0), (-1,0), 8),
+        ("FONTNAME",      (0,1), (-1,-1), "Helvetica"),
+        ("FONTSIZE",      (0,1), (-1,-1), 9),
+        ("ALIGN",         (2,1), (-1,-1), "CENTER"),
+        ("ALIGN",         (0,1), (1,-1),  "LEFT"),
+        ("TOPPADDING",    (0,1), (-1,-1), 6),
+        ("BOTTOMPADDING", (0,1), (-1,-1), 6),
+        ("LEFTPADDING",   (0,0), (-1,-1), 6),
+        ("RIGHTPADDING",  (0,0), (-1,-1), 6),
+        ("GRID",          (0,0), (-1,-1), 0.4, colors.HexColor("#c8d8cc")),
+        ("LINEBELOW",     (0,0), (-1,0),  1.2, accent),
+    ]
+    for i, r in enumerate(records, 1):
+        tk   = str(r["tier"] or "1")
+        fill = red_row if str(r.get("status","")) == "archived" else                (grey_row if i % 2 == 0 else white)
+        style_cmds.append(("BACKGROUND", (0,i), (-1,i), fill))
+        style_cmds.append(("BACKGROUND", (2,i), (2,i), tier_c.get(tk, white)))
+    tbl.setStyle(TableStyle(style_cmds))
+    story.append(tbl)
+
+    story.append(Spacer(1, 0.15*inch))
+    t1 = sum(1 for r in records if str(r["tier"]) == "1")
+    t2 = sum(1 for r in records if str(r["tier"]) == "2")
+    t3 = sum(1 for r in records if str(r["tier"]) == "3")
+    story.append(Paragraph(
+        f"Tier 1 — Standard (25 Mbps): <b>{t1}</b> &nbsp;&nbsp;|&nbsp;&nbsp; "
+        f"Tier 2 — Enhanced (50 Mbps): <b>{t2}</b> &nbsp;&nbsp;|&nbsp;&nbsp; "
+        f"Tier 3 — Premium (100 Mbps): <b>{t3}</b>",
+        ParagraphStyle("sum", fontSize=8, textColor=colors.grey,
+                       fontName="Helvetica", alignment=TA_CENTER)
+    ))
+    doc.build(story)
+    buf.seek(0)
+    return buf
+
+@app.route("/admin/history/export")
+@admin_required
+def export_history():
     month = request.args.get("month", "")
     if not month:
         return "Month required", 400
-
     try:
         db = get_db()
         cur = db.cursor()
@@ -590,167 +693,36 @@ def export_history():
         cur.close()
     except Exception as e:
         return f"Database error: {str(e)}", 500
-
     try:
+        from datetime import datetime as dt
         try:
             month_label = dt.strptime(month, "%Y-%m").strftime("%B %Y")
         except Exception:
             month_label = month
-
-        buf = io.BytesIO()
-        doc = SimpleDocTemplate(
-            buf,
-            pagesize=landscape(letter),
-            leftMargin=0.5*inch, rightMargin=0.5*inch,
-            topMargin=0.5*inch,  bottomMargin=0.5*inch
-        )
-
-        styles = getSampleStyleSheet()
-        dark_green  = colors.HexColor("#1e3a2a")
-        mid_green   = colors.HexColor("#2d5a3d")
-        light_green = colors.HexColor("#e8f5ec")
-        accent      = colors.HexColor("#4a8c5c")
-        white       = colors.white
-        grey_row    = colors.HexColor("#f5f9f6")
-        red_row     = colors.HexColor("#fff0f0")
-
-        title_style = ParagraphStyle("title", fontSize=18, textColor=dark_green,
-                                     fontName="Helvetica-Bold", spaceAfter=2)
-        sub_style   = ParagraphStyle("sub",   fontSize=10, textColor=mid_green,
-                                     fontName="Helvetica", spaceAfter=2)
-        meta_style  = ParagraphStyle("meta",  fontSize=8,  textColor=colors.grey,
-                                     fontName="Helvetica")
-
-        story = []
-        story.append(Paragraph("Aqsarniit Hotel &amp; Conference Centre", title_style))
-        story.append(Paragraph(f"Wi-Fi Request Billing Report — {month_label}", sub_style))
-        story.append(Paragraph(f"Generated: {dt.now().strftime('%Y-%m-%d %H:%M')}  |  Records: {len(records)}", meta_style))
-        story.append(Spacer(1, 0.2*inch))
-
-        # Table header
-        col_headers = ["Organization / Group", "SSID", "Tier", "Speed",
-                       "Start Date", "End Date", "Days", "Status"]
-        col_widths  = [2.4*inch, 1.8*inch, 0.7*inch, 0.7*inch,
-                       1.0*inch, 1.0*inch, 0.55*inch, 0.85*inch]
-
-        table_data = [col_headers]
-
-        for r in records:
-            tier_key  = str(r["tier"] or "1")
-            tier_mbps = TIERS.get(tier_key, TIERS["1"])["mbps"]
-            try:
-                sd  = dt.strptime(str(r["start_date"]), "%Y-%m-%d")
-                ed  = dt.strptime(str(r["end_date"]),   "%Y-%m-%d")
-                dur = str((ed - sd).days + 1)
-                sd_fmt = sd.strftime("%b %d, %Y")
-                ed_fmt = ed.strftime("%b %d, %Y")
-            except Exception:
-                sd_fmt = str(r["start_date"])
-                ed_fmt = str(r["end_date"])
-                dur    = "—"
-
-            status_str = (r["status"] or "").upper()
-
-            table_data.append([
-                r["conf_name"] or "",
-                r["ssid"] or "",
-                f"Tier {tier_key}",
-                f"{tier_mbps} Mbps",
-                sd_fmt,
-                ed_fmt,
-                dur,
-                status_str,
-            ])
-
-        tier_c = {"1": colors.HexColor("#dbeafe"),
-                  "2": colors.HexColor("#d1fae5"),
-                  "3": colors.HexColor("#fef3c7")}
-
-        tbl = Table(table_data, colWidths=col_widths, repeatRows=1)
-
-        style_cmds = [
-            # Header
-            ("BACKGROUND",   (0,0), (-1,0), dark_green),
-            ("TEXTCOLOR",    (0,0), (-1,0), white),
-            ("FONTNAME",     (0,0), (-1,0), "Helvetica-Bold"),
-            ("FONTSIZE",     (0,0), (-1,0), 9),
-            ("ALIGN",        (0,0), (-1,0), "CENTER"),
-            ("BOTTOMPADDING",(0,0), (-1,0), 8),
-            ("TOPPADDING",   (0,0), (-1,0), 8),
-            # Body
-            ("FONTNAME",     (0,1), (-1,-1), "Helvetica"),
-            ("FONTSIZE",     (0,1), (-1,-1), 9),
-            ("ALIGN",        (2,1), (-1,-1), "CENTER"),
-            ("ALIGN",        (0,1), (1,-1),  "LEFT"),
-            ("TOPPADDING",   (0,1), (-1,-1), 6),
-            ("BOTTOMPADDING",(0,1), (-1,-1), 6),
-            ("LEFTPADDING",  (0,0), (-1,-1), 6),
-            ("RIGHTPADDING", (0,0), (-1,-1), 6),
-            # Grid
-            ("GRID",         (0,0), (-1,-1), 0.4, colors.HexColor("#c8d8cc")),
-            ("LINEBELOW",    (0,0), (-1,0),  1.2, accent),
-        ]
-
-        # Alternating rows + tier colour + archived highlight
-        for i, r in enumerate(records, 1):
-            tier_key = str(r["tier"] or "1")
-            is_archived = str(r.get("status","")) == "archived"
-            if is_archived:
-                style_cmds.append(("BACKGROUND", (0,i), (-1,i), red_row))
-            elif i % 2 == 0:
-                style_cmds.append(("BACKGROUND", (0,i), (-1,i), grey_row))
-            else:
-                style_cmds.append(("BACKGROUND", (0,i), (-1,i), white))
-            # Tier cell colour
-            style_cmds.append(("BACKGROUND", (2,i), (2,i), tier_c.get(tier_key, white)))
-
-        tbl.setStyle(TableStyle(style_cmds))
-        story.append(tbl)
-
-        # Summary
-        story.append(Spacer(1, 0.15*inch))
-        t1 = sum(1 for r in records if str(r["tier"])=="1")
-        t2 = sum(1 for r in records if str(r["tier"])=="2")
-        t3 = sum(1 for r in records if str(r["tier"])=="3")
-        summary = ParagraphStyle("sum", fontSize=8, textColor=colors.grey, fontName="Helvetica")
-        story.append(Paragraph(
-            f"Tier 1 — Standard (25 Mbps): <b>{t1}</b> &nbsp;&nbsp;|&nbsp;&nbsp; "
-            f"Tier 2 — Enhanced (50 Mbps): <b>{t2}</b> &nbsp;&nbsp;|&nbsp;&nbsp; "
-            f"Tier 3 — Premium (100 Mbps): <b>{t3}</b>",
-            ParagraphStyle("sum2", fontSize=8, textColor=colors.grey,
-                          fontName="Helvetica", alignment=TA_CENTER)
-        ))
-
-        doc.build(story)
-        buf.seek(0)
-
-        return send_file(
-            buf,
-            mimetype="application/pdf",
-            as_attachment=True,
-            download_name=f"wifi_billing_{month}.pdf"
-        )
-
+        buf = generate_pdf_buffer(month, records, month_label)
+        return send_file(buf, mimetype="application/pdf",
+                         as_attachment=True,
+                         download_name=f"wifi_billing_{month}.pdf")
     except Exception as e:
         import traceback
         print(f"[export] {traceback.format_exc()}")
         return f"Export error: {str(e)}", 500
-    import io
-    from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-    from openpyxl.utils import get_column_letter
-    from datetime import datetime as dt
 
-    month = request.args.get("month", "")
+@app.route("/admin/history/slack", methods=["POST"])
+@admin_required
+def slack_billing():
+    """Post billing report PDF link to Slack, or upload file if bot token available."""
+    data  = request.json or {}
+    month = data.get("month", "")
     if not month:
-        return "Month required", 400
-
+        return jsonify({"ok": False, "error": "Month required"}), 400
+    if not SLACK_WEBHOOK:
+        return jsonify({"ok": False, "error": "Slack not configured on server"}), 500
     try:
         db = get_db()
         cur = db.cursor()
         cur.execute("""
-            SELECT id, conf_name, ssid, tier, start_date, end_date,
-                   notes, slot, pushed_at, status, password
+            SELECT conf_name, ssid, tier, start_date, end_date, notes, pushed_at, status
             FROM wifi_requests
             WHERE status IN ('pushed','archived')
               AND TO_CHAR(pushed_at, 'YYYY-MM') = %s
@@ -759,166 +731,47 @@ def export_history():
         records = cur.fetchall()
         cur.close()
     except Exception as e:
-        return f"Database error: {str(e)}", 500
-
+        return jsonify({"ok": False, "error": str(e)}), 500
     try:
-        wb  = Workbook()
-        ws  = wb.active
+        from datetime import datetime as dt
         try:
-            ml = dt.strptime(month, "%Y-%m").strftime("%B %Y")
+            month_label = dt.strptime(month, "%Y-%m").strftime("%B %Y")
         except Exception:
-            ml = month
-        ws.title = f"WiFi {ml}"[:31]
+            month_label = month
 
-        # ── Styles ──────────────────────────────────────────
-        gold_fill   = PatternFill("solid", fgColor="C9A84C")
-        hdr_fill    = PatternFill("solid", fgColor="1F3864")
-        hdr_font    = Font(name="Calibri", bold=True, color="FFFFFF", size=10)
-        sub_fill    = PatternFill("solid", fgColor="D6E4F0")
-        sub_font    = Font(name="Calibri", bold=True, color="1F3864", size=9)
-        body_font   = Font(name="Calibri", size=10)
-        alt_fill    = PatternFill("solid", fgColor="EBF5FB")
-        white_fill  = PatternFill("solid", fgColor="FFFFFF")
-        red_fill    = PatternFill("solid", fgColor="FDEDEC")
-        center      = Alignment(horizontal="center", vertical="center", wrap_text=True)
-        left        = Alignment(horizontal="left",   vertical="center", wrap_text=True)
-        thin        = Side(style="thin",   color="BDC3C7")
-        thick       = Side(style="medium", color="1F3864")
-        border      = Border(left=thin, right=thin, top=thin, bottom=thin)
-        thick_top   = Border(left=thin, right=thin, top=thick, bottom=thin)
-        tier_fills  = {"1": PatternFill("solid", fgColor="D6EAF8"),
-                       "2": PatternFill("solid", fgColor="D5F5E3"),
-                       "3": PatternFill("solid", fgColor="FDEBD0")}
-        tier_fonts  = {"1": Font(name="Calibri", size=10, bold=True, color="1A5276"),
-                       "2": Font(name="Calibri", size=10, bold=True, color="1E8449"),
-                       "3": Font(name="Calibri", size=10, bold=True, color="784212")}
-
-        # ── Title ───────────────────────────────────────────
-        ws.merge_cells("A1:L1")
-        t = ws["A1"]
-        t.value     = "Aqsarniit Hotel & Conference Centre"
-        t.font      = Font(name="Calibri", bold=True, size=16, color="1F3864")
-        t.alignment = left
-        ws.row_dimensions[1].height = 26
-
-        ws.merge_cells("A2:L2")
-        s = ws["A2"]
-        s.value     = f"Wi-Fi Request Log — {ml}"
-        s.font      = Font(name="Calibri", size=11, color="566573")
-        s.alignment = left
-        ws.row_dimensions[2].height = 18
-
-        ws.append([])  # row 3 spacer
-
-        # ── Sub-header (matches your spreadsheet) ───────────
-        ws.merge_cells("A4:L4")
-        sh = ws["A4"]
-        sh.value     = "Meetings & Events Wi-Fi Requests"
-        sh.font      = Font(name="Calibri", bold=True, size=11, color="FFFFFF")
-        sh.fill      = hdr_fill
-        sh.alignment = center
-        ws.row_dimensions[4].height = 18
-
-        # ── Column headers ──────────────────────────────────
-        headers = [
-            "First Day", "Last Day", "Schedule\nStart", "Schedule\nEnd",
-            "Days", "Organization / Group", "Tier",
-            "SSID / Wi-Fi Name", "Password",
-            "Date Requested", "Slot", "Location / Notes"
-        ]
-        ws.append(headers)  # row 5
-        for ci in range(1, len(headers)+1):
-            cell = ws.cell(row=5, column=ci)
-            cell.font      = hdr_font
-            cell.fill      = hdr_fill
-            cell.alignment = center
-            cell.border    = thick_top
-        ws.row_dimensions[5].height = 30
-
-        # ── Data rows ───────────────────────────────────────
-        for i, r in enumerate(records, 1):
-            row_num  = i + 5
-            tier_key = str(r["tier"] or "1")
-            tier_mbps = TIERS.get(tier_key, TIERS["1"])["mbps"]
-
-            try:
-                sd  = dt.strptime(str(r["start_date"]), "%Y-%m-%d")
-                ed  = dt.strptime(str(r["end_date"]),   "%Y-%m-%d")
-                dur = (ed - sd).days + 1
-                sd_fmt = sd.strftime("%d-%b-%y")
-                ed_fmt = ed.strftime("%d-%b-%y")
-            except Exception:
-                sd_fmt = str(r["start_date"])
-                ed_fmt = str(r["end_date"])
-                dur    = "—"
-
-            try:
-                req_date = r["pushed_at"].strftime("%d-%b-%y") if r["pushed_at"] else "—"
-            except Exception:
-                req_date = "—"
-
-            is_archived = str(r.get("status","")) == "archived"
-            base_fill   = red_fill if is_archived else (alt_fill if i % 2 == 0 else white_fill)
-
-            row_data = [
-                sd_fmt, ed_fmt,
-                "7am", "6pm",           # default schedule — matches your template
-                dur,
-                r["conf_name"] or "",
-                f"Tier {tier_key}  ({tier_mbps} Mbps)",
-                r["ssid"] or "",
-                r["password"] or "",
-                req_date,
-                r["slot"] or "",
-                r["notes"] or "",
-            ]
-            ws.append(row_data)
-
-            for ci, _ in enumerate(row_data, 1):
-                cell = ws.cell(row=row_num, column=ci)
-                cell.font      = body_font
-                cell.fill      = base_fill
-                cell.border    = border
-                cell.alignment = center if ci in (1,2,3,4,5,7,10,11) else left
-
-            # Tier colour override
-            tc = ws.cell(row=row_num, column=7)
-            tc.fill = tier_fills.get(tier_key, white_fill)
-            tc.font = tier_fonts.get(tier_key, body_font)
-
-        # ── Summary ─────────────────────────────────────────
-        sr = len(records) + 7
-        ws.cell(row=sr, column=1).value = f"Total: {len(records)} request(s)"
-        ws.cell(row=sr, column=1).font  = Font(name="Calibri", bold=True, size=10, color="1F3864")
+        slack_token = os.environ.get("SLACK_BOT_TOKEN", "")
+        if slack_token:
+            # Upload PDF directly to Slack
+            buf = generate_pdf_buffer(month, records, month_label)
+            import requests as req_lib
+            resp = req_lib.post(
+                "https://slack.com/api/files.upload",
+                headers={"Authorization": f"Bearer {slack_token}"},
+                data={
+                    "channels":        os.environ.get("SLACK_CHANNEL", "#general"),
+                    "filename":        f"wifi_billing_{month}.pdf",
+                    "title":           f"Wi-Fi Billing — {month_label}",
+                    "initial_comment": f":page_facing_up: *Aqsarniit Wi-Fi Billing Report — {month_label}*  |  {len(records)} record(s)",
+                },
+                files={"file": (f"wifi_billing_{month}.pdf", buf, "application/pdf")}
+            )
+            if resp.json().get("ok"):
+                return jsonify({"ok": True, "method": "file"})
+        # Fallback: send message with download link
         t1 = sum(1 for r in records if str(r["tier"])=="1")
         t2 = sum(1 for r in records if str(r["tier"])=="2")
         t3 = sum(1 for r in records if str(r["tier"])=="3")
-        ws.merge_cells(f"B{sr}:L{sr}")
-        ws.cell(row=sr, column=2).value = f"Tier 1 (25 Mbps): {t1}   |   Tier 2 (50 Mbps): {t2}   |   Tier 3 (100 Mbps): {t3}"
-        ws.cell(row=sr, column=2).font  = Font(name="Calibri", size=10, color="566573")
-
-        # ── Column widths ────────────────────────────────────
-        widths = [12, 12, 9, 9, 6, 28, 18, 22, 16, 14, 6, 24]
-        for i, w in enumerate(widths, 1):
-            ws.column_dimensions[get_column_letter(i)].width = w
-
-        ws.freeze_panes = "A6"
-
-        buf = io.BytesIO()
-        wb.save(buf)
-        buf.seek(0)
-
-        return send_file(
-            buf,
-            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            as_attachment=True,
-            download_name=f"wifi_billing_{month}.xlsx"
+        base = request.host_url.rstrip("/")
+        send_slack(
+            f":page_facing_up: *Wi-Fi Billing Report — {month_label}*\n"
+            f">Total records: *{len(records)}*  |  Tier 1: {t1}  |  Tier 2: {t2}  |  Tier 3: {t3}\n"
+            f">:arrow_down: <{base}/admin/history/export?month={month}|Download PDF>"
         )
-
+        return jsonify({"ok": True, "method": "link"})
     except Exception as e:
         import traceback
-        print(f"[export] error: {traceback.format_exc()}")
-        return f"Export error: {str(e)}", 500
+        print(f"[slack_billing] {traceback.format_exc()}")
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 @app.route("/admin/history/delete/<int:req_id>", methods=["POST"])
 @admin_required
