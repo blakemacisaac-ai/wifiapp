@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Billing History — WiFi Portal</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0d1117; --surface: #161b22; --surface2: #1c2330;
+  --border: #2a3548; --accent: #4f9cf9; --accent-dim: rgba(79,156,249,0.12);
+  --green: #23d18b; --red: #f14c4c; --amber: #e2a641; --gold: #c9a84c;
+  --text: #cdd9e5; --dim: #768390; --muted: #3a4a5a;
+  --mono: 'IBM Plex Mono', monospace;
+  --t1: #60a5fa; --t2: #34d399; --t3: #f59e0b;
+}
+body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+/* HEADER */
+.hdr { background: var(--surface); border-bottom: 1px solid var(--border); height: 52px; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; position: sticky; top: 0; z-index: 50; }
+.hdr-left { display: flex; align-items: center; gap: 10px; }
+.hdr-mark { font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; background: var(--accent-dim); border: 1px solid rgba(79,156,249,0.3); border-radius: 3px; padding: 3px 9px; color: var(--accent); }
+.hdr-title { font-family: var(--mono); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); }
+.hdr-right { display: flex; align-items: center; gap: 12px; }
+.back-link { font-family: var(--mono); font-size: 11px; color: var(--dim); text-decoration: none; transition: color 0.15s; }
+.back-link:hover { color: var(--accent); }
+.logout-link { font-family: var(--mono); font-size: 11px; color: var(--muted); text-decoration: none; }
+.logout-link:hover { color: var(--red); }
+
+/* TABS */
+.tabs { display: flex; border-bottom: 1px solid var(--border); background: var(--surface); padding: 0 24px; }
+.tab { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; padding: 14px 16px; cursor: pointer; color: var(--dim); border-bottom: 2px solid transparent; margin-bottom: -1px; text-decoration: none; transition: all 0.15s; display: block; }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab:hover:not(.active) { color: var(--text); }
+
+/* LAYOUT */
+.layout { max-width: 1200px; margin: 0 auto; padding: 28px 24px; }
+
+/* MONTH SELECTOR BAR */
+.month-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+.month-bar-left { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.month-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); }
+.month-pill {
+  font-family: var(--mono); font-size: 11px; padding: 6px 14px; border-radius: 3px;
+  border: 1px solid var(--border); color: var(--dim); text-decoration: none;
+  transition: all 0.15s; background: var(--surface);
+}
+.month-pill:hover { border-color: var(--accent); color: var(--accent); }
+.month-pill.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+.no-months { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+
+/* EXPORT BTN */
+.btn-export {
+  font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+  text-transform: uppercase; padding: 9px 18px; border-radius: 3px; cursor: pointer;
+  text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(201,168,76,0.12); color: var(--gold);
+  border: 1px solid rgba(201,168,76,0.4); transition: all 0.15s;
+}
+.btn-export:hover { background: rgba(201,168,76,0.22); }
+
+/* SUMMARY CARDS */
+.summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+.sum-card { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 16px 18px; }
+.sum-val { font-family: var(--mono); font-size: 26px; font-weight: 600; line-height: 1; margin-bottom: 6px; }
+.sum-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); }
+
+/* TABLE */
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+.panel-hdr { background: var(--surface2); border-bottom: 1px solid var(--border); padding: 12px 18px; display: flex; align-items: center; justify-content: space-between; }
+.panel-title { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim); }
+
+table { width: 100%; border-collapse: collapse; }
+thead tr { background: var(--surface2); }
+th { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); padding: 11px 14px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+td { font-size: 13px; padding: 12px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+tbody tr:hover { background: var(--surface2); }
+tbody tr:nth-child(even) { background: rgba(28,35,48,0.4); }
+tbody tr:nth-child(even):hover { background: var(--surface2); }
+
+.ssid-cell { font-family: var(--mono); font-size: 13px; font-weight: 500; color: #fff; }
+.conf-cell { font-size: 12px; color: var(--dim); margin-top: 2px; }
+
+.tier-badge { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: 0.06em; padding: 3px 9px; border-radius: 2px; border: 1px solid; white-space: nowrap; }
+.tier-badge.t1 { color: var(--t1); border-color: rgba(96,165,250,0.3);  background: rgba(96,165,250,0.1); }
+.tier-badge.t2 { color: var(--t2); border-color: rgba(52,211,153,0.3);  background: rgba(52,211,153,0.1); }
+.tier-badge.t3 { color: var(--t3); border-color: rgba(245,158,11,0.3);  background: rgba(245,158,11,0.1); }
+
+.slot-badge { font-family: var(--mono); font-size: 11px; color: var(--muted); background: var(--bg); border: 1px solid var(--border); padding: 2px 8px; border-radius: 2px; }
+.date-cell { font-family: var(--mono); font-size: 11px; color: var(--dim); white-space: nowrap; }
+.notes-cell { font-size: 12px; color: var(--muted); max-width: 200px; }
+
+.empty-state { padding: 64px 24px; text-align: center; font-family: var(--mono); font-size: 12px; color: var(--muted); letter-spacing: 0.06em; line-height: 2; }
+
+@media(max-width:700px) {
+  .summary-grid { grid-template-columns: 1fr 1fr; }
+  .layout { padding: 14px; }
+  td, th { padding: 9px 10px; }
+}
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <div class="hdr-left">
+    <span class="hdr-mark">IT</span>
+    <span class="hdr-title">Billing History</span>
+  </div>
+  <div class="hdr-right">
+    <a href="/admin/logout" class="logout-link">Sign Out</a>
+  </div>
+</header>
+
+<div class="tabs">
+  <a class="tab" href="/admin">Request Queue</a>
+  <a class="tab" href="/admin">Live SSIDs</a>
+  <a class="tab active" href="/admin/history">Billing History</a>
+</div>
+
+<div class="layout">
+
+  <!-- MONTH SELECTOR -->
+  <div class="month-bar">
+    <div class="month-bar-left">
+      <span class="month-label">Period:</span>
+      {% if months %}
+        {% for m in months %}
+        <a href="/admin/history?month={{ m.month_key }}"
+           class="month-pill {% if m.month_key == selected %}active{% endif %}">
+          {{ m.month_label | trim }}
+        </a>
+        {% endfor %}
+      {% else %}
+        <span class="no-months">No billing history yet — push some SSIDs first.</span>
+      {% endif %}
+    </div>
+    {% if selected and records %}
+    <a href="/admin/history/export?month={{ selected }}" class="btn-export">
+      ↓ Export Excel
+    </a>
+    {% endif %}
+  </div>
+
+  {% if selected and records %}
+
+  <!-- SUMMARY CARDS -->
+  {% set t1_count = records | selectattr('tier', 'equalto', '1') | list | length %}
+  {% set t2_count = records | selectattr('tier', 'equalto', '2') | list | length %}
+  {% set t3_count = records | selectattr('tier', 'equalto', '3') | list | length %}
+  <div class="summary-grid">
+    <div class="sum-card">
+      <div class="sum-val" style="color:var(--accent)">{{ records | length }}</div>
+      <div class="sum-label">Total SSIDs</div>
+    </div>
+    <div class="sum-card">
+      <div class="sum-val" style="color:var(--t1)">{{ t1_count }}</div>
+      <div class="sum-label">Tier 1 · 25 Mbps</div>
+    </div>
+    <div class="sum-card">
+      <div class="sum-val" style="color:var(--t2)">{{ t2_count }}</div>
+      <div class="sum-label">Tier 2 · 50 Mbps</div>
+    </div>
+    <div class="sum-card">
+      <div class="sum-val" style="color:var(--t3)">{{ t3_count }}</div>
+      <div class="sum-label">Tier 3 · 100 Mbps</div>
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="panel">
+    <div class="panel-hdr">
+      <span class="panel-title">
+        {% for m in months %}{% if m.month_key == selected %}{{ m.month_label | trim }}{% endif %}{% endfor %}
+        — {{ records | length }} record{{ 's' if records | length != 1 else '' }}
+      </span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>SSID / Conference</th>
+          <th>Tier</th>
+          <th>Speed</th>
+          <th>Start Date</th>
+          <th>End Date</th>
+          <th>Duration</th>
+          <th>Slot</th>
+          <th>Pushed At</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in records %}
+        {% set t = r.tier or '1' %}
+        {% set tier_info = tiers[t] %}
+        <tr>
+          <td style="font-family:var(--mono);font-size:11px;color:var(--muted)">{{ loop.index }}</td>
+          <td>
+            <div class="ssid-cell">{{ r.ssid }}</div>
+            <div class="conf-cell">{{ r.conf_name }}</div>
+          </td>
+          <td><span class="tier-badge t{{ t }}">Tier {{ t }}</span></td>
+          <td style="font-family:var(--mono);font-size:12px;color:var(--text)">{{ tier_info.mbps }} Mbps</td>
+          <td class="date-cell">{{ r.start_date }}</td>
+          <td class="date-cell">{{ r.end_date }}</td>
+          <td style="font-family:var(--mono);font-size:11px;color:var(--dim)">
+            {% if r.start_date and r.end_date %}
+              {% set days = ((r.end_date | string | replace('-','') | int) - (r.start_date | string | replace('-','') | int)) %}
+              {{ (r.end_date[:4]|int * 365 + r.end_date[5:7]|int * 30 + r.end_date[8:10]|int) - (r.start_date[:4]|int * 365 + r.start_date[5:7]|int * 30 + r.start_date[8:10]|int) + 1 }} days
+            {% endif %}
+          </td>
+          <td><span class="slot-badge">{{ r.slot or '—' }}</span></td>
+          <td class="date-cell">{{ r.pushed_at.strftime('%b %d, %Y %H:%M') if r.pushed_at else '—' }}</td>
+          <td class="notes-cell">{{ r.notes or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% elif selected %}
+  <div class="panel">
+    <div class="empty-state">NO RECORDS FOR THIS PERIOD</div>
+  </div>
+  {% endif %}
+
+</div>
+</body>
+</html>
