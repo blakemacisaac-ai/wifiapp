@@ -78,6 +78,7 @@ def init_db():
             ("enable_at",       "TIMESTAMP"),
             ("disable_at",      "TIMESTAMP"),
             ("schedule_status", "TEXT DEFAULT 'unscheduled'"),
+            ("archived_at",     "TIMESTAMP"),
         ]:
             cur.execute(f"ALTER TABLE wifi_requests ADD COLUMN IF NOT EXISTS {col} {defn}")
         db.commit()
@@ -198,6 +199,25 @@ def scheduler_tick():
             except Exception as e:
                 print(f"[scheduler] Disable error for id {row['id']}: {e}")
 
+        # ── Auto-archive: pushed rows past end_date (end of day)
+        cur.execute("""
+            SELECT * FROM wifi_requests
+            WHERE status = 'pushed'
+              AND end_date IS NOT NULL
+              AND (end_date::date + interval '1 day') <= NOW()
+        """)
+        to_archive = cur.fetchall()
+        for row in to_archive:
+            try:
+                cur.execute(
+                    "UPDATE wifi_requests SET status='archived', archived_at=NOW() WHERE id=%s",
+                    (row["id"],)
+                )
+                db.commit()
+                print(f"[scheduler] Auto-archived '{row['ssid']}' (end_date passed)")
+            except Exception as e:
+                print(f"[scheduler] Archive error for id {row['id']}: {e}")
+
         cur.close()
         db.close()
     except Exception as e:
@@ -277,13 +297,16 @@ def admin_logout():
 def admin_panel():
     db = get_db()
     cur = db.cursor()
-    cur.execute("SELECT * FROM wifi_requests ORDER BY submitted_at DESC")
-    requests_list = cur.fetchall()
+    cur.execute("SELECT * FROM wifi_requests WHERE status='pending' OR status='error' ORDER BY submitted_at DESC")
+    pending_list = cur.fetchall()
+    cur.execute("SELECT * FROM wifi_requests WHERE status='pushed' ORDER BY pushed_at DESC")
+    active_list = cur.fetchall()
     cur.close()
     live_ssids, ssid_error = get_live_ssids()
     return render_template(
         "admin.html",
-        requests=requests_list,
+        pending_list=pending_list,
+        active_list=active_list,
         live_ssids=live_ssids,
         ssid_error=ssid_error,
         meraki_configured=bool(MERAKI_API_KEY and MERAKI_NET_ID),
@@ -333,13 +356,26 @@ def push_ssid(req_id):
         return jsonify({"ok": False, "error": "Request not found"}), 404
 
     data = request.json or {}
-    slot = data.get("slot")
+    slot       = data.get("slot")
+    enable_at  = data.get("enable_at")
+    disable_at = data.get("disable_at")
     if not slot:
         cur.close()
         return jsonify({"ok": False, "error": "No slot provided"}), 400
     if not MERAKI_API_KEY or not MERAKI_NET_ID:
         cur.close()
         return jsonify({"ok": False, "error": "Meraki not configured"}), 500
+
+    def parse_dt(val):
+        if not val: return None
+        for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M", "%Y-%m-%d"):
+            try: return datetime.strptime(val, fmt).replace(tzinfo=timezone.utc)
+            except ValueError: continue
+        return None
+
+    ea = parse_dt(enable_at)
+    da = parse_dt(disable_at)
+    sched_status = "scheduled" if (ea or da) else "unscheduled"
 
     tier_key = str(row.get("tier") or "1")
     tier     = TIERS.get(tier_key, TIERS["1"])
@@ -349,8 +385,11 @@ def push_ssid(req_id):
         resp = push_ssid_to_meraki(row, slot_index)
         if resp.status_code == 200:
             cur.execute(
-                "UPDATE wifi_requests SET status='pushed', slot=%s, pushed_at=NOW(), error_msg=NULL WHERE id=%s",
-                (slot, req_id)
+                """UPDATE wifi_requests
+                   SET status='pushed', slot=%s, pushed_at=NOW(), error_msg=NULL,
+                       enable_at=%s, disable_at=%s, schedule_status=%s
+                   WHERE id=%s""",
+                (slot, ea, da, sched_status, req_id)
             )
             db.commit()
             cur.close()
@@ -419,6 +458,42 @@ def queue_status():
     rows = cur.fetchall()
     cur.close()
     return jsonify(rows)
+
+@app.route("/admin/archive/<int:req_id>", methods=["POST"])
+@admin_required
+def archive_request(req_id):
+    """Archive a pushed request. Optionally disable on Meraki first."""
+    data           = request.json or {}
+    disable_meraki = data.get("disable_meraki", False)
+
+    db = get_db()
+    cur = db.cursor()
+    cur.execute("SELECT * FROM wifi_requests WHERE id=%s", (req_id,))
+    row = cur.fetchone()
+    if not row:
+        cur.close()
+        return jsonify({"ok": False, "error": "Not found"}), 404
+
+    meraki_result = None
+    if disable_meraki and row["slot"] and MERAKI_API_KEY and MERAKI_NET_ID:
+        try:
+            resp = requests.put(
+                f"{MERAKI_BASE}/networks/{MERAKI_NET_ID}/wireless/ssids/{int(row['slot']) - 1}",
+                headers=meraki_headers(),
+                json={"enabled": False},
+                timeout=10
+            )
+            meraki_result = "disabled" if resp.status_code == 200 else f"error {resp.status_code}"
+        except Exception as e:
+            meraki_result = f"error: {str(e)}"
+
+    cur.execute(
+        "UPDATE wifi_requests SET status='archived', archived_at=NOW() WHERE id=%s",
+        (req_id,)
+    )
+    db.commit()
+    cur.close()
+    return jsonify({"ok": True, "meraki": meraki_result})
 
 @app.route("/admin/history")
 @admin_required

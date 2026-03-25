@@ -3,14 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Aqsarniit — WiFi Queue</title>
+<title>Aqsarniit WiFi — Tech Panel</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
   --bg: #0d1117; --surface: #161b22; --surface2: #1c2330; --surface3: #212a3a;
-  --border: #2a3548; --border2: #3d4f6b;
-  --accent: #4f9cf9; --accent-dim: rgba(79,156,249,0.12);
+  --border: #2a3548; --accent: #4f9cf9; --accent-dim: rgba(79,156,249,0.12);
   --green: #23d18b; --red: #f14c4c; --amber: #e2a641; --purple: #a78bfa;
   --text: #cdd9e5; --dim: #768390; --muted: #3a4a5a;
   --mono: 'IBM Plex Mono', monospace;
@@ -32,80 +31,74 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 
 /* TABS */
 .tabs { display: flex; border-bottom: 1px solid var(--border); background: var(--surface); padding: 0 24px; }
-.tab { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; padding: 14px 16px; cursor: pointer; color: var(--dim); border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.15s; }
+.tab { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; padding: 14px 16px; cursor: pointer; color: var(--dim); border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.15s; text-decoration: none; display: block; }
 .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
 .tab:hover:not(.active) { color: var(--text); }
 
 /* LAYOUT */
-.layout { max-width: 1200px; margin: 0 auto; padding: 24px; }
+.layout { max-width: 1100px; margin: 0 auto; padding: 24px; }
 .tab-content { display: none; }
 .tab-content.active { display: block; }
 
 /* STATS */
-.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px; }
 .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 16px 18px; }
 .stat-val { font-family: var(--mono); font-size: 26px; font-weight: 600; line-height: 1; margin-bottom: 6px; }
 .stat-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); }
-.c-pending { color: var(--amber); } .c-pushed { color: var(--green); } .c-error { color: var(--red); } .c-total { color: var(--accent); }
 
 /* PANEL */
 .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; margin-bottom: 20px; }
 .panel-hdr { background: var(--surface2); border-bottom: 1px solid var(--border); padding: 12px 18px; display: flex; align-items: center; justify-content: space-between; }
 .panel-title { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim); }
-.panel-actions { display: flex; gap: 8px; align-items: center; }
+.panel-count { font-family: var(--mono); font-size: 10px; background: var(--accent-dim); color: var(--accent); padding: 2px 8px; border-radius: 2px; }
 
-/* SSID BOARD */
-.ssid-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1px; background: var(--border); }
-.ssid-tile { background: var(--surface); padding: 14px 16px; transition: background 0.1s; }
-.ssid-tile:hover { background: var(--surface2); }
-.ssid-slot { font-family: var(--mono); font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 6px; text-transform: uppercase; }
-.ssid-name { font-family: var(--mono); font-size: 13px; font-weight: 500; color: #fff; margin-bottom: 8px; word-break: break-all; }
-.ssid-name.unconfigured { color: var(--muted); font-style: italic; }
-.ssid-meta { display: flex; align-items: center; justify-content: space-between; }
-.ssid-auth { font-family: var(--mono); font-size: 10px; color: var(--dim); }
+/* EMPTY */
+.empty { padding: 44px 20px; text-align: center; font-family: var(--mono); font-size: 12px; color: var(--muted); letter-spacing: 0.06em; line-height: 2; }
 
-/* TOGGLE SWITCH */
-.toggle { position: relative; display: inline-block; width: 36px; height: 20px; }
-.toggle input { opacity: 0; width: 0; height: 0; }
-.toggle-slider { position: absolute; inset: 0; background: var(--muted); border-radius: 20px; cursor: pointer; transition: 0.2s; }
-.toggle-slider::before { content: ''; position: absolute; width: 14px; height: 14px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: 0.2s; }
-.toggle input:checked + .toggle-slider { background: var(--green); }
-.toggle input:checked + .toggle-slider::before { transform: translateX(16px); }
-.toggle input:disabled + .toggle-slider { opacity: 0.4; cursor: not-allowed; }
-
-/* PERMANENT BADGE */
-.perm-badge { font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; padding: 2px 6px; border-radius: 2px; background: rgba(167,139,250,0.15); color: var(--purple); border: 1px solid rgba(167,139,250,0.3); }
-
-/* QUEUE */
-.empty { padding: 52px 20px; text-align: center; font-family: var(--mono); font-size: 12px; color: var(--muted); letter-spacing: 0.06em; line-height: 2; }
+/* REQUEST ROWS */
 .req-row { border-bottom: 1px solid var(--border); padding: 16px 18px; transition: background 0.1s; }
 .req-row:last-child { border-bottom: none; }
 .req-row:hover { background: var(--surface2); }
 .req-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 8px; gap: 12px; flex-wrap: wrap; }
 .req-ssid { font-family: var(--mono); font-size: 15px; font-weight: 600; color: #fff; }
-.req-conf { font-size: 13px; color: var(--dim); margin-bottom: 10px; }
-.req-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; align-items: center; }
-.tag { font-family: var(--mono); font-size: 11px; color: var(--dim); background: var(--bg); border: 1px solid var(--border); padding: 3px 9px; border-radius: 2px; }
-.tier-tag { font-family: var(--mono); font-size: 11px; padding: 3px 9px; border-radius: 2px; border: 1px solid; font-weight: 500; }
-.tier-tag.t1 { color: var(--t1); border-color: rgba(96,165,250,0.3); background: rgba(96,165,250,0.1); }
-.tier-tag.t2 { color: var(--t2); border-color: rgba(52,211,153,0.3); background: rgba(52,211,153,0.1); }
-.tier-tag.t3 { color: var(--t3); border-color: rgba(245,158,11,0.3); background: rgba(245,158,11,0.1); }
-.req-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.slot-sel { background: var(--bg); border: 1px solid var(--border); color: var(--text); font-family: var(--mono); font-size: 11px; padding: 7px 10px; border-radius: 3px; outline: none; cursor: pointer; max-width: 200px; }
+.req-conf { font-size: 12px; color: var(--dim); margin-top: 2px; }
+.req-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; align-items: center; }
+.tag { font-family: var(--mono); font-size: 11px; color: var(--dim); background: var(--bg); border: 1px solid var(--border); padding: 3px 9px; border-radius: 2px; white-space: nowrap; }
+.tier-tag { font-family: var(--mono); font-size: 11px; padding: 3px 9px; border-radius: 2px; border: 1px solid; font-weight: 500; white-space: nowrap; }
+.tier-tag.t1 { color: var(--t1); border-color: rgba(96,165,250,0.3);  background: rgba(96,165,250,0.1); }
+.tier-tag.t2 { color: var(--t2); border-color: rgba(52,211,153,0.3);  background: rgba(52,211,153,0.1); }
+.tier-tag.t3 { color: var(--t3); border-color: rgba(245,158,11,0.3);  background: rgba(245,158,11,0.1); }
+
+/* PENDING ACTIONS */
+.req-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.slot-sel { background: var(--bg); border: 1px solid var(--border); color: var(--text); font-family: var(--mono); font-size: 11px; padding: 7px 10px; border-radius: 3px; outline: none; cursor: pointer; max-width: 220px; }
 .slot-sel:focus { border-color: var(--accent); }
-.slot-sel:disabled { opacity: 0.4; }
-.slot-sel option.used { color: var(--amber); }
 .slot-sel option.free { color: var(--green); }
-.slot-sel option.permanent { color: var(--purple); }
+.slot-sel option.used { color: var(--amber); }
+
+/* SCHEDULE INLINE (pending) */
+.sched-inline { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
+.sched-field { display: flex; flex-direction: column; gap: 4px; }
+.sched-label { font-family: var(--mono); font-size: 10px; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
+.sched-input { background: var(--bg); border: 1px solid var(--border); color: var(--text); font-family: var(--mono); font-size: 11px; padding: 7px 10px; border-radius: 3px; outline: none; width: 100%; }
+.sched-input:focus { border-color: var(--purple); }
+
+/* SCHEDULE BADGE (active) */
+.sched-badge { font-family: var(--mono); font-size: 10px; padding: 3px 9px; border-radius: 2px; border: 1px solid; white-space: nowrap; }
+.sched-badge.set { color: var(--purple); border-color: rgba(167,139,250,0.3); background: rgba(167,139,250,0.08); }
+.sched-badge.enabled  { color: var(--green); border-color: rgba(35,209,139,0.3); background: rgba(35,209,139,0.08); }
+.sched-badge.disabled { color: var(--dim);   border-color: var(--border); background: var(--bg); }
 
 /* BUTTONS */
 .btn { font-family: var(--mono); font-size: 11px; font-weight: 500; letter-spacing: 0.07em; text-transform: uppercase; padding: 7px 14px; border-radius: 3px; cursor: pointer; border: 1px solid; transition: all 0.15s; white-space: nowrap; }
 .btn:disabled { opacity: 0.35; cursor: not-allowed; }
-.btn-push  { background: rgba(35,209,139,0.1);  color: var(--green);  border-color: rgba(35,209,139,0.35); }
-.btn-push:hover:not(:disabled)  { background: rgba(35,209,139,0.2); }
-.btn-del   { background: transparent; color: var(--dim); border-color: var(--border); }
+.btn-push    { background: rgba(35,209,139,0.1);  color: var(--green);  border-color: rgba(35,209,139,0.35); }
+.btn-push:hover:not(:disabled) { background: rgba(35,209,139,0.2); }
+.btn-archive { background: rgba(226,166,65,0.1);  color: var(--amber);  border-color: rgba(226,166,65,0.35); }
+.btn-archive:hover { background: rgba(226,166,65,0.2); }
+.btn-del     { background: transparent; color: var(--dim); border-color: var(--border); }
 .btn-del:hover { border-color: var(--red); color: var(--red); }
-.btn-sm    { padding: 5px 10px; font-size: 10px; }
+.btn-sm      { padding: 5px 10px; font-size: 10px; }
 .btn-refresh { background: transparent; color: var(--dim); border-color: var(--border); }
 .btn-refresh:hover { border-color: var(--accent); color: var(--accent); }
 
@@ -117,37 +110,51 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 .s-badge.pushing { background: rgba(79,156,249,0.1);  color: var(--accent);border-color: rgba(79,156,249,0.3); }
 .sdot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
 .sdot.pending { background: var(--amber); }
-.sdot.pushed  { background: var(--green); }
+.sdot.pushed  { background: var(--green); box-shadow: 0 0 5px var(--green); }
 .sdot.error   { background: var(--red); }
 .sdot.pushing { background: var(--accent); animation: blink 0.7s infinite alternate; }
 @keyframes blink { from{opacity:.4} to{opacity:1} }
 .error-msg { font-family: var(--mono); font-size: 11px; color: var(--red); margin-top: 8px; padding: 7px 11px; background: rgba(241,76,76,0.07); border-left: 2px solid var(--red); border-radius: 2px; }
 
-/* SCHEDULE PANEL */
-.schedule-panel { margin-top: 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: 3px; padding: 12px 14px; }
-.schedule-panel-title { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); margin-bottom: 10px; }
-.schedule-row { display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: end; }
-.sched-field { display: flex; flex-direction: column; gap: 4px; }
-.sched-label { font-family: var(--mono); font-size: 10px; color: var(--muted); letter-spacing: 0.06em; }
-.sched-input { background: var(--bg); border: 1px solid var(--border); color: var(--text); font-family: var(--mono); font-size: 11px; padding: 6px 9px; border-radius: 3px; outline: none; width: 100%; }
-.sched-input:focus { border-color: var(--accent); }
-.btn-sched { background: rgba(167,139,250,0.12); color: var(--purple); border: 1px solid rgba(167,139,250,0.35); font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.07em; text-transform: uppercase; padding: 7px 12px; border-radius: 3px; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
-.btn-sched:hover { background: rgba(167,139,250,0.22); }
-.sched-status { font-family: var(--mono); font-size: 10px; margin-top: 8px; padding: 5px 9px; border-radius: 2px; }
-.sched-status.scheduled { color: var(--purple); background: rgba(167,139,250,0.08); border: 1px solid rgba(167,139,250,0.2); }
-.sched-status.enabled   { color: var(--green);  background: rgba(35,209,139,0.08);  border: 1px solid rgba(35,209,139,0.2); }
-.sched-status.disabled  { color: var(--dim);    background: rgba(118,131,144,0.08); border: 1px solid rgba(118,131,144,0.2); }
-
 /* PUSH ALL BAR */
-.push-bar { display: flex; align-items: center; justify-content: space-between; padding: 13px 18px; border-top: 1px solid var(--border); background: var(--surface2); }
+.push-bar { display: flex; align-items: center; justify-content: space-between; padding: 12px 18px; border-top: 1px solid var(--border); background: var(--surface2); }
 .push-bar-info { font-family: var(--mono); font-size: 11px; color: var(--dim); }
 .btn-push-all { background: var(--accent-dim); color: var(--accent); border: 1px solid rgba(79,156,249,0.4); font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; padding: 9px 18px; border-radius: 3px; cursor: pointer; transition: all 0.15s; }
 .btn-push-all:hover:not(:disabled) { background: rgba(79,156,249,0.22); }
 .btn-push-all:disabled { opacity: 0.35; cursor: not-allowed; }
 
-/* SSID LOADING */
-.ssid-loading { padding: 40px; text-align: center; font-family: var(--mono); font-size: 12px; color: var(--muted); }
+/* SSID BOARD */
+.ssid-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 1px; background: var(--border); }
+.ssid-tile { background: var(--surface); padding: 14px 16px; transition: background 0.1s; }
+.ssid-tile:hover { background: var(--surface2); }
+.ssid-slot { font-family: var(--mono); font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 6px; text-transform: uppercase; }
+.ssid-name { font-family: var(--mono); font-size: 13px; font-weight: 500; color: #fff; margin-bottom: 8px; word-break: break-all; }
+.ssid-name.unconfigured { color: var(--muted); font-style: italic; }
+.ssid-meta { display: flex; align-items: center; justify-content: space-between; }
+.ssid-auth { font-family: var(--mono); font-size: 10px; color: var(--dim); }
+.toggle { position: relative; display: inline-block; width: 36px; height: 20px; }
+.toggle input { opacity: 0; width: 0; height: 0; }
+.toggle-slider { position: absolute; inset: 0; background: var(--muted); border-radius: 20px; cursor: pointer; transition: 0.2s; }
+.toggle-slider::before { content: ''; position: absolute; width: 14px; height: 14px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: 0.2s; }
+.toggle input:checked + .toggle-slider { background: var(--green); }
+.toggle input:checked + .toggle-slider::before { transform: translateX(16px); }
+.toggle input:disabled + .toggle-slider { opacity: 0.4; cursor: not-allowed; }
 .ssid-error { padding: 20px 18px; font-family: var(--mono); font-size: 12px; color: var(--red); background: rgba(241,76,76,0.07); border-left: 3px solid var(--red); }
+
+/* ARCHIVE MODAL */
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 200; align-items: center; justify-content: center; }
+.modal-overlay.open { display: flex; }
+.modal { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 28px; max-width: 420px; width: 90%; animation: fadeUp 0.2s ease; }
+@keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+.modal h3 { font-family: var(--mono); font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text); margin-bottom: 8px; }
+.modal p { font-size: 13px; color: var(--dim); margin-bottom: 20px; line-height: 1.6; }
+.modal-ssid { font-family: var(--mono); font-size: 14px; color: #fff; font-weight: 600; }
+.modal-actions { display: flex; gap: 10px; flex-direction: column; }
+.btn-modal-disable { background: rgba(241,76,76,0.1); color: var(--red); border: 1px solid rgba(241,76,76,0.35); font-family: var(--mono); font-size: 11px; font-weight: 500; letter-spacing: 0.07em; text-transform: uppercase; padding: 11px; border-radius: 3px; cursor: pointer; transition: all 0.15s; }
+.btn-modal-disable:hover { background: rgba(241,76,76,0.2); }
+.btn-modal-keep { background: rgba(35,209,139,0.1); color: var(--green); border: 1px solid rgba(35,209,139,0.35); font-family: var(--mono); font-size: 11px; font-weight: 500; letter-spacing: 0.07em; text-transform: uppercase; padding: 11px; border-radius: 3px; cursor: pointer; transition: all 0.15s; }
+.btn-modal-keep:hover { background: rgba(35,209,139,0.2); }
+.btn-modal-cancel { background: transparent; color: var(--dim); border: 1px solid var(--border); font-family: var(--mono); font-size: 11px; letter-spacing: 0.07em; text-transform: uppercase; padding: 9px; border-radius: 3px; cursor: pointer; }
 
 /* TOASTS */
 #toasts { position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 8px; z-index: 999; }
@@ -157,11 +164,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 .toast.e { border-color: var(--red);   color: var(--red); }
 .toast.i { border-color: var(--accent);color: var(--accent); }
 
-@media(max-width:700px){
-  .stats { grid-template-columns: 1fr 1fr; }
-  .layout { padding: 14px; }
-  .ssid-grid { grid-template-columns: 1fr 1fr; }
-}
+@media(max-width:700px) { .stats{grid-template-columns:1fr 1fr} .layout{padding:14px} .ssid-grid{grid-template-columns:1fr 1fr} .sched-inline{grid-template-columns:1fr} }
 </style>
 </head>
 <body>
@@ -172,11 +175,8 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
     <span class="hdr-title">Aqsarniit — WiFi Queue</span>
   </div>
   <div class="hdr-right">
-    {% if meraki_configured %}
-      <span class="meraki-badge ok">● Meraki Connected</span>
-    {% else %}
-      <span class="meraki-badge bad">● Meraki Not Configured</span>
-    {% endif %}
+    {% if meraki_configured %}<span class="meraki-badge ok">● Meraki Connected</span>
+    {% else %}<span class="meraki-badge bad">● Meraki Not Configured</span>{% endif %}
     <a href="/admin/logout" class="logout-link">Sign Out</a>
   </div>
 </header>
@@ -189,187 +189,179 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 
 <div class="layout">
 
-  <!-- ── QUEUE TAB ── -->
+  <!-- ══ QUEUE TAB ══ -->
   <div class="tab-content active" id="tab-queue">
 
-    {% set pending_list = requests | selectattr('status','eq','pending') | list %}
-    {% set pushed_list  = requests | rejectattr('status','eq','pending') | list %}
-
     <div class="stats">
-      <div class="stat"><div class="stat-val c-total">{{ requests | length }}</div><div class="stat-label">Total</div></div>
-      <div class="stat"><div class="stat-val c-pending" id="s-pending">{{ pending_list | length }}</div><div class="stat-label">Pending</div></div>
-      <div class="stat"><div class="stat-val c-pushed"  id="s-pushed">{{ requests | selectattr('status','eq','pushed') | list | length }}</div><div class="stat-label">Pushed</div></div>
-      <div class="stat"><div class="stat-val c-error"   id="s-error">{{ requests | selectattr('status','eq','error') | list | length }}</div><div class="stat-label">Errors</div></div>
+      <div class="stat">
+        <div class="stat-val" style="color:var(--amber)">{{ pending_list | length }}</div>
+        <div class="stat-label">Pending</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val" style="color:var(--green)">{{ active_list | length }}</div>
+        <div class="stat-label">Active</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val" style="color:var(--accent)">{{ (pending_list | length) + (active_list | length) }}</div>
+        <div class="stat-label">Total Live</div>
+      </div>
     </div>
 
-    <!-- PENDING PANEL -->
-    <div class="panel" style="margin-bottom:20px">
+    <!-- ── PENDING ── -->
+    <div class="panel">
       <div class="panel-hdr">
-        <span class="panel-title">Needs Action — Pending ({{ pending_list | length }})</span>
-        <div class="panel-actions">
-          <button class="btn btn-sm btn-refresh" onclick="location.reload()">↻ Refresh</button>
+        <span class="panel-title">⏳ Pending — Needs Action</span>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span class="panel-count">{{ pending_list | length }}</span>
+          <button class="btn btn-sm btn-refresh" onclick="location.reload()">↻</button>
         </div>
       </div>
-      <div id="queue-body">
-        {% if not pending_list %}
-        <div class="empty">ALL CLEAR<br><span style="color:#1e2a36">No pending requests right now</span></div>
-        {% else %}
-          {% for r in pending_list %}
-          <div class="req-row" id="row-{{ r.id }}">
-            <div class="req-top">
-              <div>
-                <div class="req-ssid">{{ r.ssid }}</div>
-                <div class="req-conf">{{ r.conf_name }}</div>
-              </div>
-              <span class="s-badge {{ r.status }}" id="badge-{{ r.id }}">
-                <span class="sdot {{ r.status }}"></span>{{ r.status }}
-              </span>
+
+      {% if not pending_list %}
+      <div class="empty">ALL CLEAR<br><span style="color:#1e2a36">No pending requests</span></div>
+      {% else %}
+        {% for r in pending_list %}
+        <div class="req-row" id="row-{{ r.id }}">
+          <div class="req-top">
+            <div>
+              <div class="req-ssid">{{ r.ssid }}</div>
+              <div class="req-conf">{{ r.conf_name }}</div>
             </div>
-            <div class="req-meta">
-              <span class="tag">📅 {{ r.start_date }} → {{ r.end_date }}</span>
-              <span class="tag">🔑 ••••••••</span>
-              {% set t = r.tier or '1' %}
-              {% if t == '1' %}<span class="tier-tag t1">Tier 1 · 25 Mbps</span>
-              {% elif t == '2' %}<span class="tier-tag t2">Tier 2 · 50 Mbps</span>
-              {% elif t == '3' %}<span class="tier-tag t3">Tier 3 · 100 Mbps</span>{% endif %}
-              {% if r.notes %}<span class="tag">💬 {{ r.notes }}</span>{% endif %}
-            </div>
-            <div class="req-actions">
-              <select class="slot-sel" id="slot-{{ r.id }}" onchange="onSlotChange({{ r.id }}, this)">
-                <option value="">— Assign SSID slot —</option>
-                {% for i in range(1, 16) %}
-                <option value="{{ i }}" {% if r.slot == i %}selected{% endif %}>Slot {{ i }}</option>
-                {% endfor %}
-              </select>
-              <button class="btn btn-push" id="pbtn-{{ r.id }}"
-                onclick="pushOne({{ r.id }})"
-                {% if not r.slot %}disabled{% endif %}>↑ Push to Meraki</button>
-              <button class="btn btn-del" onclick="deleteReq({{ r.id }})" title="Delete request">✕</button>
-            </div>
-            {% if r.error_msg %}
-            <div class="error-msg" id="err-{{ r.id }}">Error: {{ r.error_msg }}</div>
-            {% endif %}
+            <span class="s-badge {{ r.status }}" id="badge-{{ r.id }}">
+              <span class="sdot {{ r.status }}"></span>{{ r.status }}
+            </span>
           </div>
-          {% endfor %}
-        {% endif %}
-      </div>
-      {% if pending_list %}
-      <div class="push-bar">
-        <span class="push-bar-info" id="pending-count">{{ pending_list | length }} pending</span>
-        <button class="btn-push-all" id="push-all-btn" onclick="pushAll()">↑ Push All Pending</button>
-      </div>
+          <div class="req-meta">
+            <span class="tag">📅 {{ r.start_date }} → {{ r.end_date }}</span>
+            <span class="tag">🔑 ••••••••</span>
+            {% set t = r.tier or '1' %}
+            {% if t == '1' %}<span class="tier-tag t1">Tier 1 · 25 Mbps</span>
+            {% elif t == '2' %}<span class="tier-tag t2">Tier 2 · 50 Mbps</span>
+            {% elif t == '3' %}<span class="tier-tag t3">Tier 3 · 100 Mbps</span>{% endif %}
+            {% if r.notes %}<span class="tag">💬 {{ r.notes }}</span>{% endif %}
+          </div>
+
+          <!-- Slot + Push -->
+          <div class="req-actions">
+            <select class="slot-sel" id="slot-{{ r.id }}" onchange="onSlotChange({{ r.id }}, this)">
+              <option value="">— Assign SSID slot —</option>
+              {% for i in range(1, 16) %}
+              <option value="{{ i }}" {% if r.slot == i %}selected{% endif %}>Slot {{ i }}</option>
+              {% endfor %}
+            </select>
+            <button class="btn btn-push" id="pbtn-{{ r.id }}"
+              onclick="pushOne({{ r.id }})"
+              {% if not r.slot %}disabled{% endif %}>↑ Push to Meraki</button>
+            <button class="btn btn-del" onclick="deletePending({{ r.id }})">✕ Remove</button>
+          </div>
+
+          <!-- Schedule — set before pushing -->
+          <div class="sched-inline">
+            <div class="sched-field">
+              <span class="sched-label">Enable At (optional)</span>
+              <input class="sched-input" type="datetime-local" id="ea-{{ r.id }}">
+            </div>
+            <div class="sched-field">
+              <span class="sched-label">Disable At (optional)</span>
+              <input class="sched-input" type="datetime-local" id="da-{{ r.id }}">
+            </div>
+          </div>
+
+          {% if r.error_msg %}
+          <div class="error-msg" id="err-{{ r.id }}">Error: {{ r.error_msg }}</div>
+          {% endif %}
+        </div>
+        {% endfor %}
+
+        <div class="push-bar">
+          <span class="push-bar-info">{{ pending_list | length }} pending</span>
+          <button class="btn-push-all" onclick="pushAll()">↑ Push All</button>
+        </div>
       {% endif %}
     </div>
 
-    <!-- ACTIVE / PUSHED PANEL -->
+    <!-- ── ACTIVE ── -->
     <div class="panel">
       <div class="panel-hdr">
-        <span class="panel-title">Active & Pushed ({{ pushed_list | length }})</span>
-        <div class="panel-actions">
-          <span style="font-family:var(--mono);font-size:10px;color:var(--muted)">Records kept for billing — view full history in Billing History tab</span>
-        </div>
+        <span class="panel-title">✓ Active — Currently Live</span>
+        <span class="panel-count">{{ active_list | length }}</span>
       </div>
-      <div id="pushed-body">
-        {% if not pushed_list %}
-        <div class="empty">NO PUSHED RECORDS YET</div>
-        {% else %}
-          {% for r in pushed_list %}
-          <div class="req-row" id="row-{{ r.id }}">
-            <div class="req-top">
-              <div>
-                <div class="req-ssid">{{ r.ssid }}</div>
-                <div class="req-conf">{{ r.conf_name }}</div>
-              </div>
-              <span class="s-badge {{ r.status }}" id="badge-{{ r.id }}">
-                <span class="sdot {{ r.status }}"></span>{{ r.status }}
-              </span>
-            </div>
-            <div class="req-meta">
-              <span class="tag">📅 {{ r.start_date }} → {{ r.end_date }}</span>
-              {% set t = r.tier or '1' %}
-              {% if t == '1' %}<span class="tier-tag t1">Tier 1 · 25 Mbps</span>
-              {% elif t == '2' %}<span class="tier-tag t2">Tier 2 · 50 Mbps</span>
-              {% elif t == '3' %}<span class="tier-tag t3">Tier 3 · 100 Mbps</span>{% endif %}
-              {% if r.slot %}<span class="tag">Slot {{ r.slot }}</span>{% endif %}
-              {% if r.pushed_at %}<span class="tag">✓ Pushed {{ r.pushed_at.strftime('%b %d %H:%M') }}</span>{% endif %}
-              {% if r.notes %}<span class="tag">💬 {{ r.notes }}</span>{% endif %}
-            </div>
 
-            <!-- Schedule controls — only for pushed -->
-            {% if r.status == 'pushed' %}
-            <div class="schedule-panel">
-              <div class="schedule-panel-title">⏰ Auto Schedule</div>
-              <div class="schedule-row">
-                <div class="sched-field">
-                  <span class="sched-label">Enable At</span>
-                  <input class="sched-input" type="datetime-local" id="ea-{{ r.id }}"
-                    value="{{ r.enable_at.strftime('%Y-%m-%dT%H:%M') if r.enable_at else '' }}">
-                </div>
-                <div class="sched-field">
-                  <span class="sched-label">Disable At</span>
-                  <input class="sched-input" type="datetime-local" id="da-{{ r.id }}"
-                    value="{{ r.disable_at.strftime('%Y-%m-%dT%H:%M') if r.disable_at else '' }}">
-                </div>
-                <button class="btn-sched" onclick="saveSchedule({{ r.id }})">Save</button>
-              </div>
-              {% if r.schedule_status and r.schedule_status not in ('unscheduled', None) %}
-              <div class="sched-status {{ r.schedule_status }}" id="ss-{{ r.id }}">
-                {% if r.schedule_status == 'scheduled' %}⏳ Scheduled — will auto-enable/disable
-                {% elif r.schedule_status == 'enabled' %}✓ Auto-enabled by scheduler
-                {% elif r.schedule_status == 'disabled' %}○ Auto-disabled by scheduler{% endif %}
-              </div>
+      {% if not active_list %}
+      <div class="empty">NO ACTIVE SSIDS<br><span style="color:#1e2a36">Pushed requests appear here</span></div>
+      {% else %}
+        {% for r in active_list %}
+        <div class="req-row" id="row-{{ r.id }}">
+          <div class="req-top">
+            <div>
+              <div class="req-ssid">{{ r.ssid }}</div>
+              <div class="req-conf">{{ r.conf_name }}</div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <span class="s-badge pushed"><span class="sdot pushed"></span>live</span>
+              <button class="btn btn-archive btn-sm" onclick="openArchive({{ r.id }}, '{{ r.ssid }}')">Archive</button>
+            </div>
+          </div>
+          <div class="req-meta">
+            <span class="tag">📅 {{ r.start_date }} → {{ r.end_date }}</span>
+            {% set t = r.tier or '1' %}
+            {% if t == '1' %}<span class="tier-tag t1">Tier 1 · 25 Mbps</span>
+            {% elif t == '2' %}<span class="tier-tag t2">Tier 2 · 50 Mbps</span>
+            {% elif t == '3' %}<span class="tier-tag t3">Tier 3 · 100 Mbps</span>{% endif %}
+            <span class="tag">Slot {{ r.slot }}</span>
+            {% if r.pushed_at %}<span class="tag">✓ Pushed {{ r.pushed_at.strftime('%b %d %H:%M') }}</span>{% endif %}
+            {% if r.notes %}<span class="tag">💬 {{ r.notes }}</span>{% endif %}
+            {% if r.enable_at or r.disable_at %}
+              {% if r.schedule_status == 'enabled' %}
+                <span class="sched-badge enabled">⚡ Auto-enabled</span>
+              {% elif r.schedule_status == 'disabled' %}
+                <span class="sched-badge disabled">○ Auto-disabled</span>
               {% else %}
-              <div class="sched-status" id="ss-{{ r.id }}" style="display:none"></div>
+                <span class="sched-badge set">
+                  ⏰ {% if r.enable_at %}On {{ r.enable_at.strftime('%b %d %H:%M') }}{% endif %}
+                  {% if r.disable_at %} → Off {{ r.disable_at.strftime('%b %d %H:%M') }}{% endif %}
+                </span>
               {% endif %}
-            </div>
-            {% endif %}
-
-            {% if r.error_msg %}
-            <div class="error-msg">Error: {{ r.error_msg }}</div>
             {% endif %}
           </div>
-          {% endfor %}
-        {% endif %}
-      </div>
+        </div>
+        {% endfor %}
+      {% endif %}
     </div>
+
   </div>
 
-  <!-- ── LIVE SSIDs TAB ── -->
+  <!-- ══ LIVE SSIDs TAB ══ -->
   <div class="tab-content" id="tab-ssids">
     <div class="panel">
       <div class="panel-hdr">
         <span class="panel-title">Live SSID Board — All 15 Slots</span>
-        <div class="panel-actions">
+        <div style="display:flex;gap:10px;align-items:center">
           <span style="font-family:var(--mono);font-size:10px;color:var(--muted)">
-            <span style="color:var(--purple)">■</span> Permanent &nbsp;
-            <span style="color:var(--green)">■</span> Free &nbsp;
-            <span style="color:var(--amber)">■</span> Conference
+            <span style="color:var(--green)">■</span> Enabled &nbsp;
+            <span style="color:var(--muted)">■</span> Disabled
           </span>
           <button class="btn btn-sm btn-refresh" onclick="loadSSIDs()">↻ Refresh</button>
         </div>
       </div>
-
       {% if ssid_error %}
       <div class="ssid-error">Could not load SSIDs: {{ ssid_error }}</div>
       {% elif live_ssids %}
       <div class="ssid-grid" id="ssid-grid">
         {% for s in live_ssids %}
-        {% set slot_num = s.number + 1 %}
         {% set is_unconfigured = s.name.startswith('Unconfigured') %}
-        <div class="ssid-tile" id="tile-{{ s.number }}">
-          <div class="ssid-slot">Slot {{ slot_num }}</div>
-          <div class="ssid-name {% if is_unconfigured %}unconfigured{% endif %}">
-            {{ s.name }}
-          </div>
+        <div class="ssid-tile">
+          <div class="ssid-slot">Slot {{ s.number + 1 }}</div>
+          <div class="ssid-name {% if is_unconfigured %}unconfigured{% endif %}">{{ s.name }}</div>
           <div class="ssid-meta">
             <span class="ssid-auth">{{ s.authMode or '—' }}</span>
             {% if not is_unconfigured %}
-              <label class="toggle" title="{% if s.enabled %}Disable{% else %}Enable{% endif %} this SSID">
-                <input type="checkbox" {% if s.enabled %}checked{% endif %}
-                  onchange="toggleSSID({{ s.number }}, this.checked, this)"
-                  {% if not meraki_configured %}disabled{% endif %}>
-                <span class="toggle-slider"></span>
-              </label>
+            <label class="toggle">
+              <input type="checkbox" {% if s.enabled %}checked{% endif %}
+                onchange="toggleSSID({{ s.number }}, this.checked, this)"
+                {% if not meraki_configured %}disabled{% endif %}>
+              <span class="toggle-slider"></span>
+            </label>
             {% endif %}
           </div>
           {% if s.bandwidthLimitDown or s.bandwidthLimitUp %}
@@ -382,16 +374,36 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
         {% endfor %}
       </div>
       {% else %}
-      <div class="ssid-loading" id="ssid-grid">Loading SSIDs…</div>
+      <div class="empty" id="ssid-grid">Loading SSIDs…</div>
       {% endif %}
     </div>
   </div>
 
 </div>
 
+<!-- ARCHIVE MODAL -->
+<div class="modal-overlay" id="archiveModal">
+  <div class="modal">
+    <h3>Archive Request</h3>
+    <p>Archiving <span class="modal-ssid" id="modal-ssid-name"></span>.<br>
+    What should happen to the SSID on Meraki?</p>
+    <div class="modal-actions">
+      <button class="btn-modal-disable" onclick="confirmArchive(true)">
+        ↓ Disable on Meraki + Archive
+      </button>
+      <button class="btn-modal-keep" onclick="confirmArchive(false)">
+        ✓ Keep Meraki as-is + Archive
+      </button>
+      <button class="btn-modal-cancel" onclick="closeArchive()">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <div id="toasts"></div>
 
 <script>
+let _archiveId = null;
+
 // ── Tab switching ──────────────────────────────────────────
 function switchTab(name) {
   document.querySelectorAll('.tab').forEach((t, i) => {
@@ -403,7 +415,7 @@ function switchTab(name) {
   if (name === 'ssids') loadSSIDs();
 }
 
-// ── Live SSID data (used to enrich slot dropdowns) ─────────
+// ── Live SSID data ─────────────────────────────────────────
 let liveSSIDs = {};
 
 async function loadSSIDs() {
@@ -415,7 +427,7 @@ async function loadSSIDs() {
     data.ssids.forEach(s => { liveSSIDs[s.number] = s; });
     renderSSIDGrid(data.ssids);
     enrichSlotDropdowns();
-  } catch(e) { toast('SSID load error: ' + e.message, 'e'); }
+  } catch(e) { toast('SSID error: ' + e.message, 'e'); }
 }
 
 function renderSSIDGrid(ssids) {
@@ -423,244 +435,194 @@ function renderSSIDGrid(ssids) {
   if (!grid) return;
   grid.className = 'ssid-grid';
   grid.innerHTML = ssids.map(s => {
-    const slotNum     = s.number + 1;
-    const unconfigured = s.name.startsWith('Unconfigured');
-    const bwDown = s.bandwidthLimitDown ? (s.bandwidthLimitDown / 1000).toFixed(0) + ' Mbps' : '∞';
-    const bwUp   = s.bandwidthLimitUp   ? (s.bandwidthLimitUp   / 1000).toFixed(0) + ' Mbps' : '∞';
-    return `
-      <div class="ssid-tile" id="tile-${s.number}">
-        <div class="ssid-slot">Slot ${slotNum}</div>
-        <div class="ssid-name ${unconfigured ? 'unconfigured' : ''}">${esc(s.name)}</div>
-        <div class="ssid-meta">
-          <span class="ssid-auth">${s.authMode || '—'}</span>
-          ${!unconfigured ? `
-            <label class="toggle">
-              <input type="checkbox" ${s.enabled ? 'checked' : ''}
-                onchange="toggleSSID(${s.number}, this.checked, this)">
-              <span class="toggle-slider"></span>
-            </label>` : ''}
-        </div>
-        ${(s.bandwidthLimitDown || s.bandwidthLimitUp) ? `
-        <div style="font-family:var(--mono);font-size:10px;color:var(--dim);margin-top:6px">
-          ↓ ${bwDown} · ↑ ${bwUp}
-        </div>` : ''}
-      </div>`;
+    const unc  = s.name.startsWith('Unconfigured');
+    const bwD  = s.bandwidthLimitDown ? (s.bandwidthLimitDown/1000).toFixed(0)+' Mbps' : '∞';
+    const bwU  = s.bandwidthLimitUp   ? (s.bandwidthLimitUp/1000).toFixed(0)+' Mbps'   : '∞';
+    return `<div class="ssid-tile">
+      <div class="ssid-slot">Slot ${s.number+1}</div>
+      <div class="ssid-name ${unc?'unconfigured':''}">${esc(s.name)}</div>
+      <div class="ssid-meta">
+        <span class="ssid-auth">${s.authMode||'—'}</span>
+        ${!unc?`<label class="toggle"><input type="checkbox" ${s.enabled?'checked':''}
+          onchange="toggleSSID(${s.number},this.checked,this)">
+          <span class="toggle-slider"></span></label>`:''}
+      </div>
+      ${(s.bandwidthLimitDown||s.bandwidthLimitUp)?`<div style="font-family:var(--mono);font-size:10px;color:var(--dim);margin-top:6px">↓ ${bwD} · ↑ ${bwU}</div>`:''}
+    </div>`;
   }).join('');
 }
 
-// Enrich slot dropdowns to show which slots are free vs used
 function enrichSlotDropdowns() {
-  document.querySelectorAll('.slot-sel:not([disabled])').forEach(sel => {
-    const currentVal = sel.value;
+  document.querySelectorAll('.slot-sel').forEach(sel => {
+    const cur = sel.value;
     sel.innerHTML = '<option value="">— Assign SSID slot —</option>';
     for (let i = 1; i <= 15; i++) {
-      const s = liveSSIDs[i - 1];
+      const s   = liveSSIDs[i-1];
       const opt = document.createElement('option');
       opt.value = i;
       if (s) {
-        const unconfigured = s.name.startsWith('Unconfigured');
-        if (unconfigured) {
-          opt.text = `Slot ${i} — Free`;
-          opt.className = 'free';
-        } else if (s.enabled) {
-          opt.text = `Slot ${i} — ${s.name} (active)`;
-          opt.className = 'used';
-        } else {
-          opt.text = `Slot ${i} — ${s.name} (disabled)`;
-          opt.className = 'used';
-        }
+        const unc = s.name.startsWith('Unconfigured');
+        opt.text      = unc ? `Slot ${i} — Free` : `Slot ${i} — ${s.name}${s.enabled?' (active)':' (off)'}`;
+        opt.className = unc ? 'free' : 'used';
       } else {
         opt.text = `Slot ${i}`;
       }
-      if (String(i) === String(currentVal)) opt.selected = true;
+      if (String(i) === String(cur)) opt.selected = true;
       sel.appendChild(opt);
     }
   });
 }
 
-// ── Toggle SSID enable/disable ─────────────────────────────
-async function toggleSSID(slotIndex, enabled, checkbox) {
-  checkbox.disabled = true;
+// ── Toggle SSID ────────────────────────────────────────────
+async function toggleSSID(slotIdx, enabled, cb) {
+  cb.disabled = true;
   try {
     const res  = await fetch('/admin/ssid/toggle', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ slot: slotIndex, enabled })
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({slot: slotIdx, enabled})
     });
     const data = await res.json();
-    if (data.ok) {
-      if (liveSSIDs[slotIndex]) liveSSIDs[slotIndex].enabled = enabled;
-      toast(`Slot ${slotIndex + 1} ${enabled ? 'enabled' : 'disabled'}`, 's');
-    } else {
-      checkbox.checked = !enabled; // revert
-      toast('Toggle failed: ' + data.error, 'e');
-    }
-  } catch(e) {
-    checkbox.checked = !enabled;
-    toast('Error: ' + e.message, 'e');
-  }
-  checkbox.disabled = false;
+    if (data.ok) { toast(`Slot ${slotIdx+1} ${enabled?'enabled':'disabled'}`, 's'); }
+    else { cb.checked = !enabled; toast('Toggle failed: '+data.error, 'e'); }
+  } catch(e) { cb.checked = !enabled; toast('Error: '+e.message,'e'); }
+  cb.disabled = false;
 }
 
 // ── Slot change ────────────────────────────────────────────
 function onSlotChange(id, sel) {
-  const btn = document.getElementById('pbtn-' + id);
+  const btn = document.getElementById('pbtn-'+id);
   if (btn) btn.disabled = !sel.value;
 }
 
-// ── Push one ───────────────────────────────────────────────
+// ── Push ───────────────────────────────────────────────────
 async function pushOne(id) {
-  const slot = document.getElementById('slot-' + id)?.value;
+  const slot = document.getElementById('slot-'+id)?.value;
   if (!slot) { toast('Assign a slot first', 'e'); return; }
 
-  // Warn if slot is in use
-  const s = liveSSIDs[parseInt(slot) - 1];
+  const s = liveSSIDs[parseInt(slot)-1];
   if (s && !s.name.startsWith('Unconfigured') && s.enabled) {
-    if (!confirm(`Slot ${slot} is currently active as "${s.name}". Overwrite it?`)) return;
+    if (!confirm(`Slot ${slot} is active as "${s.name}". Overwrite?`)) return;
   }
 
+  const ea = document.getElementById('ea-'+id)?.value || null;
+  const da = document.getElementById('da-'+id)?.value || null;
+
   setBadge(id, 'pushing');
-  const pbtn = document.getElementById('pbtn-' + id);
+  const pbtn = document.getElementById('pbtn-'+id);
   if (pbtn) pbtn.disabled = true;
 
   try {
-    const res  = await fetch('/admin/push/' + id, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ slot: parseInt(slot) })
+    const res  = await fetch('/admin/push/'+id, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({slot: parseInt(slot), enable_at: ea, disable_at: da})
     });
     const data = await res.json();
     if (data.ok) {
-      setBadge(id, 'pushed');
-      if (pbtn) pbtn.remove();
-      document.getElementById('err-' + id)?.remove();
       toast(`✓ "${data.ssid}" live on Slot ${data.slot} · ${data.mbps} Mbps`, 's');
-      updateStats();
-      loadSSIDs();
+      setTimeout(() => location.reload(), 1200);
     } else {
       setBadge(id, 'error');
       if (pbtn) pbtn.disabled = false;
       showErr(id, data.error);
-      toast('Failed: ' + data.error, 'e');
+      toast('Failed: '+data.error, 'e');
     }
   } catch(e) {
     setBadge(id, 'error');
     if (pbtn) pbtn.disabled = false;
     showErr(id, e.message);
-    toast('Error: ' + e.message, 'e');
+    toast('Error: '+e.message, 'e');
   }
 }
 
 async function pushAll() {
-  const rows = document.querySelectorAll('.req-row');
+  const rows = document.querySelectorAll('#tab-queue .req-row');
   const ready = [], skipped = [];
   rows.forEach(row => {
-    const id    = row.id.replace('row-', '');
-    const badge = document.getElementById('badge-' + id);
-    const slot  = document.getElementById('slot-' + id)?.value;
-    if (badge?.textContent.includes('pending')) {
+    const id   = row.id.replace('row-','');
+    const badge = document.getElementById('badge-'+id);
+    const slot  = document.getElementById('slot-'+id)?.value;
+    if (badge && badge.textContent.includes('pending')) {
       slot ? ready.push(id) : skipped.push(id);
     }
   });
-  if (!ready.length) { toast('Assign slots to pending requests first', 'e'); return; }
-  if (skipped.length) toast(`${skipped.length} skipped — no slot assigned`, 'i');
-  toast(`Pushing ${ready.length} request${ready.length > 1 ? 's' : ''}…`, 'i');
-  for (const id of ready) {
-    await pushOne(parseInt(id));
-    await new Promise(r => setTimeout(r, 500));
-  }
+  if (!ready.length) { toast('Assign slots first', 'e'); return; }
+  if (skipped.length) toast(`${skipped.length} skipped — no slot`, 'i');
+  toast(`Pushing ${ready.length}…`, 'i');
+  for (const id of ready) { await pushOne(parseInt(id)); await new Promise(r=>setTimeout(r,500)); }
 }
 
-async function deleteReq(id) {
-  if (!confirm('Remove this request?')) return;
+async function deletePending(id) {
+  if (!confirm('Remove this pending request?')) return;
   try {
-    await fetch('/admin/delete/' + id, { method: 'POST' });
-    document.getElementById('row-' + id)?.remove();
-    toast('Request removed', 'i');
-    updateStats();
-  } catch(e) { toast('Error: ' + e.message, 'e'); }
+    await fetch('/admin/delete/'+id, {method:'POST'});
+    document.getElementById('row-'+id)?.remove();
+    toast('Removed', 'i');
+  } catch(e) { toast('Error: '+e.message,'e'); }
+}
+
+// ── Archive ────────────────────────────────────────────────
+function openArchive(id, ssid) {
+  _archiveId = id;
+  document.getElementById('modal-ssid-name').textContent = ssid;
+  document.getElementById('archiveModal').classList.add('open');
+}
+
+function closeArchive() {
+  _archiveId = null;
+  document.getElementById('archiveModal').classList.remove('open');
+}
+
+async function confirmArchive(disableMeraki) {
+  if (!_archiveId) return;
+  const id = _archiveId;
+  closeArchive();
+  try {
+    const res  = await fetch('/admin/archive/'+id, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({disable_meraki: disableMeraki})
+    });
+    const data = await res.json();
+    if (data.ok) {
+      toast('Archived' + (disableMeraki ? ' + Meraki disabled' : ''), 's');
+      setTimeout(() => location.reload(), 1000);
+    } else {
+      toast('Archive failed: '+data.error, 'e');
+    }
+  } catch(e) { toast('Error: '+e.message,'e'); }
 }
 
 // ── Helpers ────────────────────────────────────────────────
 function setBadge(id, status) {
-  const el = document.getElementById('badge-' + id);
+  const el = document.getElementById('badge-'+id);
   if (!el) return;
-  el.className = 's-badge ' + status;
+  el.className = 's-badge '+status;
   el.innerHTML = `<span class="sdot ${status}"></span>${status}`;
 }
-
 function showErr(id, msg) {
-  let el = document.getElementById('err-' + id);
-  if (!el) {
-    el = document.createElement('div');
-    el.className = 'error-msg'; el.id = 'err-' + id;
-    document.getElementById('row-' + id)?.appendChild(el);
-  }
-  el.textContent = 'Error: ' + msg;
+  let el = document.getElementById('err-'+id);
+  if (!el) { el = document.createElement('div'); el.className='error-msg'; el.id='err-'+id; document.getElementById('row-'+id)?.appendChild(el); }
+  el.textContent = 'Error: '+msg;
 }
-
-function updateStats() {
-  const pending = [...document.querySelectorAll('.s-badge')].filter(b => b.textContent.includes('pending')).length;
-  const pushed  = [...document.querySelectorAll('.s-badge')].filter(b => b.textContent.includes('pushed')).length;
-  const errors  = [...document.querySelectorAll('.s-badge')].filter(b => b.textContent.includes('error')).length;
-  document.getElementById('s-pending') && (document.getElementById('s-pending').textContent = pending);
-  document.getElementById('s-pushed')  && (document.getElementById('s-pushed').textContent  = pushed);
-  document.getElementById('s-error')   && (document.getElementById('s-error').textContent   = errors);
-  document.getElementById('pending-count') && (document.getElementById('pending-count').textContent = pending + ' pending');
-  const allBtn = document.getElementById('push-all-btn');
-  if (allBtn) allBtn.disabled = pending === 0;
-}
-
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
 function toast(msg, type) {
   const el = document.createElement('div');
-  el.className = 'toast ' + type; el.textContent = msg;
+  el.className = 'toast '+type; el.textContent = msg;
   document.getElementById('toasts').appendChild(el);
   setTimeout(() => el.remove(), 4500);
 }
 
-// ── Save schedule ─────────────────────────────────────────
-async function saveSchedule(id) {
-  const ea = document.getElementById('ea-' + id)?.value;
-  const da = document.getElementById('da-' + id)?.value;
-  if (!ea && !da) { toast('Set at least one date/time', 'e'); return; }
-  try {
-    const res  = await fetch('/admin/schedule/' + id, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enable_at: ea || null, disable_at: da || null })
-    });
-    const data = await res.json();
-    if (data.ok) {
-      const el = document.getElementById('ss-' + id);
-      if (el) {
-        el.className = 'sched-status scheduled';
-        el.style.display = '';
-        el.textContent = '⏳ Scheduled — will auto-enable/disable';
-      }
-      toast('Schedule saved', 's');
-    } else {
-      toast('Save failed: ' + data.error, 'e');
-    }
-  } catch(e) { toast('Error: ' + e.message, 'e'); }
-}
-
-// Init: load SSIDs in background to enrich slot dropdowns
+// Init
 loadSSIDs();
 
-// Auto-refresh queue every 30s
+// Auto-refresh every 30s for new submissions
 setInterval(async () => {
   try {
     const res  = await fetch('/admin/status');
     const data = await res.json();
-    const newPending = data.filter(r => r.status === 'pending').length;
-    const curPending = [...document.querySelectorAll('.s-badge')].filter(b => b.textContent.includes('pending')).length;
-    if (newPending > curPending) {
-      toast('New request received — refreshing…', 'i');
-      setTimeout(() => location.reload(), 1500);
-    }
-  } catch(e) {}
+    const newP = data.filter(r => r.status==='pending').length;
+    const curP = document.querySelectorAll('.s-badge.pending').length;
+    if (newP > curP) { toast('New request — refreshing…','i'); setTimeout(()=>location.reload(),1500); }
+  } catch(e){}
 }, 30000);
 </script>
 </body>
