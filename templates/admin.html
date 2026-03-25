@@ -192,26 +192,29 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
   <!-- ── QUEUE TAB ── -->
   <div class="tab-content active" id="tab-queue">
 
+    {% set pending_list = requests | selectattr('status','eq','pending') | list %}
+    {% set pushed_list  = requests | rejectattr('status','eq','pending') | list %}
+
     <div class="stats">
       <div class="stat"><div class="stat-val c-total">{{ requests | length }}</div><div class="stat-label">Total</div></div>
-      <div class="stat"><div class="stat-val c-pending" id="s-pending">{{ requests | selectattr('status','eq','pending') | list | length }}</div><div class="stat-label">Pending</div></div>
-      <div class="stat"><div class="stat-val c-pushed"  id="s-pushed">{{ requests | selectattr('status','eq','pushed')  | list | length }}</div><div class="stat-label">Pushed</div></div>
-      <div class="stat"><div class="stat-val c-error"   id="s-error">{{ requests  | selectattr('status','eq','error')   | list | length }}</div><div class="stat-label">Errors</div></div>
+      <div class="stat"><div class="stat-val c-pending" id="s-pending">{{ pending_list | length }}</div><div class="stat-label">Pending</div></div>
+      <div class="stat"><div class="stat-val c-pushed"  id="s-pushed">{{ requests | selectattr('status','eq','pushed') | list | length }}</div><div class="stat-label">Pushed</div></div>
+      <div class="stat"><div class="stat-val c-error"   id="s-error">{{ requests | selectattr('status','eq','error') | list | length }}</div><div class="stat-label">Errors</div></div>
     </div>
 
-    <div class="panel">
+    <!-- PENDING PANEL -->
+    <div class="panel" style="margin-bottom:20px">
       <div class="panel-hdr">
-        <span class="panel-title">Pending Requests</span>
+        <span class="panel-title">Needs Action — Pending ({{ pending_list | length }})</span>
         <div class="panel-actions">
           <button class="btn btn-sm btn-refresh" onclick="location.reload()">↻ Refresh</button>
         </div>
       </div>
-
       <div id="queue-body">
-        {% if not requests %}
-        <div class="empty">NO REQUESTS YET<br><span style="color:#1e2a36">Management submits via the main page</span></div>
+        {% if not pending_list %}
+        <div class="empty">ALL CLEAR<br><span style="color:#1e2a36">No pending requests right now</span></div>
         {% else %}
-          {% for r in requests %}
+          {% for r in pending_list %}
           <div class="req-row" id="row-{{ r.id }}">
             <div class="req-top">
               <div>
@@ -230,29 +233,69 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
               {% elif t == '2' %}<span class="tier-tag t2">Tier 2 · 50 Mbps</span>
               {% elif t == '3' %}<span class="tier-tag t3">Tier 3 · 100 Mbps</span>{% endif %}
               {% if r.notes %}<span class="tag">💬 {{ r.notes }}</span>{% endif %}
-              {% if r.pushed_at %}<span class="tag">✓ Pushed {{ r.pushed_at.strftime('%b %d %H:%M') if r.pushed_at else '' }}</span>{% endif %}
             </div>
             <div class="req-actions">
-              <select class="slot-sel" id="slot-{{ r.id }}"
-                onchange="onSlotChange({{ r.id }}, this)"
-                {% if r.status != 'pending' %}disabled{% endif %}>
+              <select class="slot-sel" id="slot-{{ r.id }}" onchange="onSlotChange({{ r.id }}, this)">
                 <option value="">— Assign SSID slot —</option>
-                {# JS will populate slot options with live SSID awareness #}
                 {% for i in range(1, 16) %}
                 <option value="{{ i }}" {% if r.slot == i %}selected{% endif %}>Slot {{ i }}</option>
                 {% endfor %}
               </select>
-              {% if r.status == 'pending' %}
               <button class="btn btn-push" id="pbtn-{{ r.id }}"
                 onclick="pushOne({{ r.id }})"
                 {% if not r.slot %}disabled{% endif %}>↑ Push to Meraki</button>
-              {% endif %}
-              <button class="btn btn-del" onclick="deleteReq({{ r.id }})">✕</button>
+              <button class="btn btn-del" onclick="deleteReq({{ r.id }})" title="Delete request">✕</button>
             </div>
             {% if r.error_msg %}
             <div class="error-msg" id="err-{{ r.id }}">Error: {{ r.error_msg }}</div>
             {% endif %}
+          </div>
+          {% endfor %}
+        {% endif %}
+      </div>
+      {% if pending_list %}
+      <div class="push-bar">
+        <span class="push-bar-info" id="pending-count">{{ pending_list | length }} pending</span>
+        <button class="btn-push-all" id="push-all-btn" onclick="pushAll()">↑ Push All Pending</button>
+      </div>
+      {% endif %}
+    </div>
 
+    <!-- ACTIVE / PUSHED PANEL -->
+    <div class="panel">
+      <div class="panel-hdr">
+        <span class="panel-title">Active & Pushed ({{ pushed_list | length }})</span>
+        <div class="panel-actions">
+          <span style="font-family:var(--mono);font-size:10px;color:var(--muted)">Records kept for billing — view full history in Billing History tab</span>
+        </div>
+      </div>
+      <div id="pushed-body">
+        {% if not pushed_list %}
+        <div class="empty">NO PUSHED RECORDS YET</div>
+        {% else %}
+          {% for r in pushed_list %}
+          <div class="req-row" id="row-{{ r.id }}">
+            <div class="req-top">
+              <div>
+                <div class="req-ssid">{{ r.ssid }}</div>
+                <div class="req-conf">{{ r.conf_name }}</div>
+              </div>
+              <span class="s-badge {{ r.status }}" id="badge-{{ r.id }}">
+                <span class="sdot {{ r.status }}"></span>{{ r.status }}
+              </span>
+            </div>
+            <div class="req-meta">
+              <span class="tag">📅 {{ r.start_date }} → {{ r.end_date }}</span>
+              {% set t = r.tier or '1' %}
+              {% if t == '1' %}<span class="tier-tag t1">Tier 1 · 25 Mbps</span>
+              {% elif t == '2' %}<span class="tier-tag t2">Tier 2 · 50 Mbps</span>
+              {% elif t == '3' %}<span class="tier-tag t3">Tier 3 · 100 Mbps</span>{% endif %}
+              {% if r.slot %}<span class="tag">Slot {{ r.slot }}</span>{% endif %}
+              {% if r.pushed_at %}<span class="tag">✓ Pushed {{ r.pushed_at.strftime('%b %d %H:%M') }}</span>{% endif %}
+              {% if r.notes %}<span class="tag">💬 {{ r.notes }}</span>{% endif %}
+            </div>
+
+            <!-- Schedule controls — only for pushed -->
             {% if r.status == 'pushed' %}
             <div class="schedule-panel">
               <div class="schedule-panel-title">⏰ Auto Schedule</div>
@@ -273,8 +316,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
               <div class="sched-status {{ r.schedule_status }}" id="ss-{{ r.id }}">
                 {% if r.schedule_status == 'scheduled' %}⏳ Scheduled — will auto-enable/disable
                 {% elif r.schedule_status == 'enabled' %}✓ Auto-enabled by scheduler
-                {% elif r.schedule_status == 'disabled' %}○ Auto-disabled by scheduler
-                {% endif %}
+                {% elif r.schedule_status == 'disabled' %}○ Auto-disabled by scheduler{% endif %}
               </div>
               {% else %}
               <div class="sched-status" id="ss-{{ r.id }}" style="display:none"></div>
@@ -282,22 +324,13 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
             </div>
             {% endif %}
 
+            {% if r.error_msg %}
+            <div class="error-msg">Error: {{ r.error_msg }}</div>
+            {% endif %}
           </div>
           {% endfor %}
         {% endif %}
       </div>
-
-      {% if requests %}
-      <div class="push-bar">
-        <span class="push-bar-info" id="pending-count">
-          {{ requests | selectattr('status','eq','pending') | list | length }} pending
-        </span>
-        <button class="btn-push-all" id="push-all-btn" onclick="pushAll()"
-          {% if not requests | selectattr('status','eq','pending') | list %}disabled{% endif %}>
-          ↑ Push All Pending
-        </button>
-      </div>
-      {% endif %}
     </div>
   </div>
 
