@@ -15,38 +15,25 @@
   --red: #c0392b; --red-bg: #fdf2f1; --red-border: #e8b4b0;
 }
 body { font-family: 'DM Sans', sans-serif; background: var(--cream); min-height: 100vh; display: flex; flex-direction: column; }
-
-/* HEADER */
 .site-header { background: var(--text); padding: 20px 40px; display: flex; align-items: center; gap: 16px; }
 .crest { width: 44px; height: 44px; border: 1.5px solid var(--gold); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
 .brand-name { font-family: 'Playfair Display', serif; font-size: 18px; color: var(--gold-light); letter-spacing: 0.04em; }
 .brand-sub { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--gold-dim); margin-top: 2px; }
-
-/* HERO */
 .hero { background: var(--text); padding: 52px 24px 64px; text-align: center; position: relative; overflow: hidden; }
 .hero::after { content: ''; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 60%; height: 1px; background: linear-gradient(to right, transparent, var(--gold-dim), transparent); }
 .hero h1 { font-family: 'Playfair Display', serif; font-size: 36px; font-weight: 400; color: #fff; letter-spacing: 0.02em; margin-bottom: 12px; }
 .hero p { color: var(--text-dim); font-size: 15px; font-weight: 300; max-width: 440px; margin: 0 auto; line-height: 1.7; }
 .gold-line { width: 40px; height: 1px; background: var(--gold); margin: 16px auto; }
-
-/* BODY */
 .page-body { flex: 1; max-width: 600px; margin: 0 auto; width: 100%; padding: 44px 20px 64px; }
-
-/* ALERTS */
 .alert { border-radius: 3px; padding: 14px 18px; margin-bottom: 24px; font-size: 14px; line-height: 1.5; }
 .alert-error { background: var(--red-bg); border: 1px solid var(--red-border); color: var(--red); }
 .alert-error ul { margin: 6px 0 0 18px; }
-.alert-success { background: var(--green-bg); border: 1px solid var(--green-border); color: var(--green); }
-
-/* SUCCESS CARD */
 .success-card { text-align: center; padding: 48px 32px; background: #fff; border-radius: 4px; box-shadow: 0 2px 20px rgba(26,22,16,0.07); animation: fadeUp 0.4s ease; }
 .success-icon { width: 70px; height: 70px; border-radius: 50%; background: linear-gradient(135deg, #2d5a27, #3a7a32); border: 2px solid #5cb85c; display: flex; align-items: center; justify-content: center; font-size: 28px; margin: 0 auto 22px; box-shadow: 0 0 28px rgba(76,175,80,0.2); }
 .success-card h2 { font-family: 'Playfair Display', serif; font-size: 26px; color: var(--text); margin-bottom: 10px; }
 .success-card p { color: var(--text-mid); font-size: 15px; line-height: 1.6; max-width: 340px; margin: 0 auto 28px; }
 .btn-another { background: var(--text); color: var(--gold-light); border: none; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; letter-spacing: 0.07em; text-transform: uppercase; padding: 12px 28px; border-radius: 2px; cursor: pointer; text-decoration: none; display: inline-block; transition: background 0.2s; }
 .btn-another:hover { background: #2d2620; }
-
-/* FORM CARD */
 .form-card { background: #fff; border-radius: 4px; box-shadow: 0 2px 20px rgba(26,22,16,0.07); overflow: hidden; animation: fadeUp 0.3s ease; }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
 .form-card-head { background: var(--cream2); border-bottom: 1px solid var(--warm); padding: 20px 28px; }
@@ -63,20 +50,37 @@ body { font-family: 'DM Sans', sans-serif; background: var(--cream); min-height:
 .pw-wrap { position: relative; }
 .pw-wrap input { padding-right: 44px; }
 .pw-eye { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--text-dim); font-size: 17px; padding: 0; line-height: 1; }
+
+/* TIER SELECTOR */
+.tier-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.tier-opt input[type=radio] { display: none; }
+.tier-card {
+  border: 2px solid var(--warm); border-radius: 4px; padding: 14px 12px;
+  text-align: center; cursor: pointer; transition: all 0.2s; background: var(--cream);
+}
+.tier-opt input:checked + .tier-card {
+  border-color: var(--gold); background: #fff;
+  box-shadow: 0 0 0 1px var(--gold);
+}
+.tier-card:hover { border-color: #c8b890; }
+.tier-name { font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 4px; }
+.tier-speed { font-size: 22px; font-weight: 300; color: var(--text); letter-spacing: -0.5px; font-family: 'Playfair Display', serif; }
+.tier-unit { font-size: 11px; color: var(--text-dim); margin-top: 2px; letter-spacing: 0.04em; }
+.tier-desc { font-size: 11px; color: var(--text-dim); margin-top: 6px; line-height: 1.4; }
+
 .submit-btn { background: var(--text); color: var(--gold-light); border: none; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; letter-spacing: 0.07em; text-transform: uppercase; padding: 14px; border-radius: 3px; cursor: pointer; width: 100%; margin-top: 4px; transition: background 0.2s; }
 .submit-btn:hover { background: #2d2620; }
 .form-footer { padding: 15px 28px; border-top: 1px solid var(--warm); background: var(--cream2); font-size: 12px; color: var(--text-dim); text-align: center; }
-
 @media (max-width: 600px) {
   .site-header { padding: 16px 20px; }
   .hero h1 { font-size: 26px; }
   .date-row { grid-template-columns: 1fr; }
   .form-inner { padding: 20px; }
+  .tier-grid { grid-template-columns: 1fr; }
 }
 </style>
 </head>
 <body>
-
 <header class="site-header">
   <div class="crest">🏨</div>
   <div>
@@ -84,34 +88,26 @@ body { font-family: 'DM Sans', sans-serif; background: var(--cream); min-height:
     <div class="brand-sub">Conference Services</div>
   </div>
 </header>
-
 <div class="hero">
   <h1>Conference WiFi Request</h1>
   <div class="gold-line"></div>
   <p>Submit your event's WiFi details and our IT team will have your network ready before your conference begins.</p>
 </div>
-
 <div class="page-body">
-
   {% if success %}
   <div class="success-card">
     <div class="success-icon">✓</div>
     <h2>Request Submitted</h2>
-    <p>Your WiFi request has been received. Our IT team will configure the network and confirm before your event.</p>
+    <p>Your WiFi request has been received. Our IT team will configure the network before your event.</p>
     <a href="/" class="btn-another">Submit Another Request</a>
   </div>
-
   {% else %}
-
   {% if errors %}
   <div class="alert alert-error">
     <strong>Please fix the following:</strong>
-    <ul>
-      {% for e in errors %}<li>{{ e }}</li>{% endfor %}
-    </ul>
+    <ul>{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
   </div>
   {% endif %}
-
   <div class="form-card">
     <div class="form-card-head">
       <h2>Event Details</h2>
@@ -119,20 +115,15 @@ body { font-family: 'DM Sans', sans-serif; background: var(--cream); min-height:
     </div>
     <form method="POST" action="/submit">
       <div class="form-inner">
-
         <div class="field">
           <label for="conf_name">Conference / Event Name</label>
-          <input type="text" id="conf_name" name="conf_name" placeholder="e.g. Annual Sales Summit 2025"
-            value="{{ form.conf_name if form else '' }}" required>
+          <input type="text" id="conf_name" name="conf_name" placeholder="e.g. Annual Sales Summit 2025" value="{{ form.conf_name if form else '' }}" required>
         </div>
-
         <div class="field">
           <label for="ssid">Preferred Network Name</label>
-          <input type="text" id="ssid" name="ssid" placeholder="e.g. SalesSummit-WiFi" maxlength="32"
-            value="{{ form.ssid if form else '' }}" required>
-          <span class="hint">This is the name guests will see when connecting. Max 32 characters, no spaces.</span>
+          <input type="text" id="ssid" name="ssid" placeholder="e.g. SalesSummit-WiFi" maxlength="32" value="{{ form.ssid if form else '' }}" required>
+          <span class="hint">Visible to guests when connecting. Max 32 characters, no spaces.</span>
         </div>
-
         <div class="field">
           <label for="password">WiFi Password</label>
           <div class="pw-wrap">
@@ -141,43 +132,67 @@ body { font-family: 'DM Sans', sans-serif; background: var(--cream); min-height:
           </div>
           <span class="hint">Share this only with your event attendees.</span>
         </div>
-
         <div class="date-row">
           <div class="field">
             <label for="start_date">Event Start Date</label>
-            <input type="date" id="start_date" name="start_date"
-              value="{{ form.start_date if form else '' }}" required>
+            <input type="date" id="start_date" name="start_date" value="{{ form.start_date if form else '' }}" required>
           </div>
           <div class="field">
             <label for="end_date">Event End Date</label>
-            <input type="date" id="end_date" name="end_date"
-              value="{{ form.end_date if form else '' }}" required>
+            <input type="date" id="end_date" name="end_date" value="{{ form.end_date if form else '' }}" required>
+          </div>
+        </div>
+
+        <!-- TIER SELECTOR -->
+        <div class="field">
+          <label>WiFi Speed Tier</label>
+          <div class="tier-grid">
+            <label class="tier-opt">
+              <input type="radio" name="tier" value="1" {% if not form or form.get('tier','1') == '1' %}checked{% endif %}>
+              <div class="tier-card">
+                <div class="tier-name">Tier 1</div>
+                <div class="tier-speed">25</div>
+                <div class="tier-unit">Mbps</div>
+                <div class="tier-desc">Standard — general sessions, email, browsing</div>
+              </div>
+            </label>
+            <label class="tier-opt">
+              <input type="radio" name="tier" value="2" {% if form and form.get('tier') == '2' %}checked{% endif %}>
+              <div class="tier-card">
+                <div class="tier-name">Tier 2</div>
+                <div class="tier-speed">50</div>
+                <div class="tier-unit">Mbps</div>
+                <div class="tier-desc">Enhanced — video calls, presentations</div>
+              </div>
+            </label>
+            <label class="tier-opt">
+              <input type="radio" name="tier" value="3" {% if form and form.get('tier') == '3' %}checked{% endif %}>
+              <div class="tier-card">
+                <div class="tier-name">Tier 3</div>
+                <div class="tier-speed">100</div>
+                <div class="tier-unit">Mbps</div>
+                <div class="tier-desc">Premium — high-demand, large events</div>
+              </div>
+            </label>
           </div>
         </div>
 
         <div class="field">
           <label for="notes">Additional Notes <span style="font-weight:300;text-transform:none;letter-spacing:0">(optional)</span></label>
-          <input type="text" id="notes" name="notes" placeholder="e.g. Ballroom A & B, approx 200 guests"
-            value="{{ form.notes if form else '' }}">
+          <input type="text" id="notes" name="notes" placeholder="e.g. Ballroom A & B, approx 200 guests" value="{{ form.notes if form else '' }}">
         </div>
-
         <button type="submit" class="submit-btn">Submit WiFi Request →</button>
       </div>
     </form>
-    <div class="form-footer">
-      Questions? Contact IT at extension 420 or it@grandvenue.com
-    </div>
+    <div class="form-footer">Questions? Contact IT at extension 420 or it@grandvenue.com</div>
   </div>
-
   {% endif %}
 </div>
-
 <script>
 function togglePw() {
   const i = document.getElementById('password');
   i.type = i.type === 'password' ? 'text' : 'password';
 }
-// Set min date to today
 document.getElementById('start_date').min = new Date().toISOString().split('T')[0];
 document.getElementById('end_date').min   = new Date().toISOString().split('T')[0];
 document.getElementById('start_date').addEventListener('change', function() {
