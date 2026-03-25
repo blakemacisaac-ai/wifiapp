@@ -564,6 +564,178 @@ def admin_history():
 @admin_required
 def export_history():
     import io
+    from datetime import datetime as dt
+    from reportlab.lib.pagesizes import letter, landscape
+    from reportlab.lib import colors
+    from reportlab.lib.units import inch
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT
+
+    month = request.args.get("month", "")
+    if not month:
+        return "Month required", 400
+
+    try:
+        db = get_db()
+        cur = db.cursor()
+        cur.execute("""
+            SELECT conf_name, ssid, tier, start_date, end_date, notes, pushed_at, status
+            FROM wifi_requests
+            WHERE status IN ('pushed','archived')
+              AND TO_CHAR(pushed_at, 'YYYY-MM') = %s
+            ORDER BY start_date ASC
+        """, (month,))
+        records = cur.fetchall()
+        cur.close()
+    except Exception as e:
+        return f"Database error: {str(e)}", 500
+
+    try:
+        try:
+            month_label = dt.strptime(month, "%Y-%m").strftime("%B %Y")
+        except Exception:
+            month_label = month
+
+        buf = io.BytesIO()
+        doc = SimpleDocTemplate(
+            buf,
+            pagesize=landscape(letter),
+            leftMargin=0.5*inch, rightMargin=0.5*inch,
+            topMargin=0.5*inch,  bottomMargin=0.5*inch
+        )
+
+        styles = getSampleStyleSheet()
+        dark_green  = colors.HexColor("#1e3a2a")
+        mid_green   = colors.HexColor("#2d5a3d")
+        light_green = colors.HexColor("#e8f5ec")
+        accent      = colors.HexColor("#4a8c5c")
+        white       = colors.white
+        grey_row    = colors.HexColor("#f5f9f6")
+        red_row     = colors.HexColor("#fff0f0")
+
+        title_style = ParagraphStyle("title", fontSize=18, textColor=dark_green,
+                                     fontName="Helvetica-Bold", spaceAfter=2)
+        sub_style   = ParagraphStyle("sub",   fontSize=10, textColor=mid_green,
+                                     fontName="Helvetica", spaceAfter=2)
+        meta_style  = ParagraphStyle("meta",  fontSize=8,  textColor=colors.grey,
+                                     fontName="Helvetica")
+
+        story = []
+        story.append(Paragraph("Aqsarniit Hotel &amp; Conference Centre", title_style))
+        story.append(Paragraph(f"Wi-Fi Request Billing Report — {month_label}", sub_style))
+        story.append(Paragraph(f"Generated: {dt.now().strftime('%Y-%m-%d %H:%M')}  |  Records: {len(records)}", meta_style))
+        story.append(Spacer(1, 0.2*inch))
+
+        # Table header
+        col_headers = ["Organization / Group", "SSID", "Tier", "Speed",
+                       "Start Date", "End Date", "Days", "Status"]
+        col_widths  = [2.4*inch, 1.8*inch, 0.7*inch, 0.7*inch,
+                       1.0*inch, 1.0*inch, 0.55*inch, 0.85*inch]
+
+        table_data = [col_headers]
+
+        for r in records:
+            tier_key  = str(r["tier"] or "1")
+            tier_mbps = TIERS.get(tier_key, TIERS["1"])["mbps"]
+            try:
+                sd  = dt.strptime(str(r["start_date"]), "%Y-%m-%d")
+                ed  = dt.strptime(str(r["end_date"]),   "%Y-%m-%d")
+                dur = str((ed - sd).days + 1)
+                sd_fmt = sd.strftime("%b %d, %Y")
+                ed_fmt = ed.strftime("%b %d, %Y")
+            except Exception:
+                sd_fmt = str(r["start_date"])
+                ed_fmt = str(r["end_date"])
+                dur    = "—"
+
+            status_str = (r["status"] or "").upper()
+
+            table_data.append([
+                r["conf_name"] or "",
+                r["ssid"] or "",
+                f"Tier {tier_key}",
+                f"{tier_mbps} Mbps",
+                sd_fmt,
+                ed_fmt,
+                dur,
+                status_str,
+            ])
+
+        tier_c = {"1": colors.HexColor("#dbeafe"),
+                  "2": colors.HexColor("#d1fae5"),
+                  "3": colors.HexColor("#fef3c7")}
+
+        tbl = Table(table_data, colWidths=col_widths, repeatRows=1)
+
+        style_cmds = [
+            # Header
+            ("BACKGROUND",   (0,0), (-1,0), dark_green),
+            ("TEXTCOLOR",    (0,0), (-1,0), white),
+            ("FONTNAME",     (0,0), (-1,0), "Helvetica-Bold"),
+            ("FONTSIZE",     (0,0), (-1,0), 9),
+            ("ALIGN",        (0,0), (-1,0), "CENTER"),
+            ("BOTTOMPADDING",(0,0), (-1,0), 8),
+            ("TOPPADDING",   (0,0), (-1,0), 8),
+            # Body
+            ("FONTNAME",     (0,1), (-1,-1), "Helvetica"),
+            ("FONTSIZE",     (0,1), (-1,-1), 9),
+            ("ALIGN",        (2,1), (-1,-1), "CENTER"),
+            ("ALIGN",        (0,1), (1,-1),  "LEFT"),
+            ("TOPPADDING",   (0,1), (-1,-1), 6),
+            ("BOTTOMPADDING",(0,1), (-1,-1), 6),
+            ("LEFTPADDING",  (0,0), (-1,-1), 6),
+            ("RIGHTPADDING", (0,0), (-1,-1), 6),
+            # Grid
+            ("GRID",         (0,0), (-1,-1), 0.4, colors.HexColor("#c8d8cc")),
+            ("LINEBELOW",    (0,0), (-1,0),  1.2, accent),
+        ]
+
+        # Alternating rows + tier colour + archived highlight
+        for i, r in enumerate(records, 1):
+            tier_key = str(r["tier"] or "1")
+            is_archived = str(r.get("status","")) == "archived"
+            if is_archived:
+                style_cmds.append(("BACKGROUND", (0,i), (-1,i), red_row))
+            elif i % 2 == 0:
+                style_cmds.append(("BACKGROUND", (0,i), (-1,i), grey_row))
+            else:
+                style_cmds.append(("BACKGROUND", (0,i), (-1,i), white))
+            # Tier cell colour
+            style_cmds.append(("BACKGROUND", (2,i), (2,i), tier_c.get(tier_key, white)))
+
+        tbl.setStyle(TableStyle(style_cmds))
+        story.append(tbl)
+
+        # Summary
+        story.append(Spacer(1, 0.15*inch))
+        t1 = sum(1 for r in records if str(r["tier"])=="1")
+        t2 = sum(1 for r in records if str(r["tier"])=="2")
+        t3 = sum(1 for r in records if str(r["tier"])=="3")
+        summary = ParagraphStyle("sum", fontSize=8, textColor=colors.grey, fontName="Helvetica")
+        story.append(Paragraph(
+            f"Tier 1 — Standard (25 Mbps): <b>{t1}</b> &nbsp;&nbsp;|&nbsp;&nbsp; "
+            f"Tier 2 — Enhanced (50 Mbps): <b>{t2}</b> &nbsp;&nbsp;|&nbsp;&nbsp; "
+            f"Tier 3 — Premium (100 Mbps): <b>{t3}</b>",
+            ParagraphStyle("sum2", fontSize=8, textColor=colors.grey,
+                          fontName="Helvetica", alignment=TA_CENTER)
+        ))
+
+        doc.build(story)
+        buf.seek(0)
+
+        return send_file(
+            buf,
+            mimetype="application/pdf",
+            as_attachment=True,
+            download_name=f"wifi_billing_{month}.pdf"
+        )
+
+    except Exception as e:
+        import traceback
+        print(f"[export] {traceback.format_exc()}")
+        return f"Export error: {str(e)}", 500
+    import io
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
     from openpyxl.utils import get_column_letter
