@@ -2,6 +2,8 @@ import os
 import requests
 import psycopg2
 import psycopg2.extras
+import threading
+from datetime import datetime, timezone
 from functools import wraps
 from flask import (
     Flask, render_template, request, redirect,
@@ -16,14 +18,14 @@ ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
 MERAKI_API_KEY = os.environ.get("MERAKI_API_KEY", "")
 MERAKI_NET_ID  = os.environ.get("MERAKI_NET_ID", "")
 DATABASE_URL   = os.environ.get("DATABASE_URL", "")
-
 MERAKI_BASE    = "https://api.meraki.com/api/v1"
 
-# Tier definitions: mbps limits (upload = download)
+# Tier → true kbps using 1024-based conversion so Meraki reports exact Mbps
+# 25 Mbps = 25 * 1024 = 25600 kbps, etc.
 TIERS = {
-    "1": {"label": "Tier 1 — Standard",  "mbps": 25},
-    "2": {"label": "Tier 2 — Enhanced",  "mbps": 50},
-    "3": {"label": "Tier 3 — Premium",   "mbps": 100},
+    "1": {"label": "Tier 1 — Standard",  "mbps": 25,  "kbps": 25600},
+    "2": {"label": "Tier 2 — Enhanced",  "mbps": 50,  "kbps": 51200},
+    "3": {"label": "Tier 3 — Premium",   "mbps": 100, "kbps": 102400},
 }
 
 # ── Database ─────────────────────────────────────────────────
@@ -42,32 +44,42 @@ def close_db(exception):
     if db is not None:
         db.close()
 
+def get_scheduler_db():
+    """Separate DB connection for the scheduler thread (not Flask g)."""
+    return psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.RealDictCursor)
+
 def init_db():
     with app.app_context():
         db = get_db()
         cur = db.cursor()
         cur.execute("""
             CREATE TABLE IF NOT EXISTS wifi_requests (
-                id           SERIAL PRIMARY KEY,
-                conf_name    TEXT NOT NULL,
-                ssid         TEXT NOT NULL,
-                password     TEXT NOT NULL,
-                start_date   TEXT NOT NULL,
-                end_date     TEXT NOT NULL,
-                notes        TEXT,
-                tier         TEXT DEFAULT '1',
-                status       TEXT DEFAULT 'pending',
-                slot         INTEGER,
-                error_msg    TEXT,
-                submitted_at TIMESTAMP DEFAULT NOW(),
-                pushed_at    TIMESTAMP
+                id               SERIAL PRIMARY KEY,
+                conf_name        TEXT NOT NULL,
+                ssid             TEXT NOT NULL,
+                password         TEXT NOT NULL,
+                start_date       TEXT NOT NULL,
+                end_date         TEXT NOT NULL,
+                notes            TEXT,
+                tier             TEXT DEFAULT '1',
+                status           TEXT DEFAULT 'pending',
+                slot             INTEGER,
+                error_msg        TEXT,
+                submitted_at     TIMESTAMP DEFAULT NOW(),
+                pushed_at        TIMESTAMP,
+                enable_at        TIMESTAMP,
+                disable_at       TIMESTAMP,
+                schedule_status  TEXT DEFAULT 'unscheduled'
             )
         """)
-        # Add tier column if upgrading existing DB
-        cur.execute("""
-            ALTER TABLE wifi_requests
-            ADD COLUMN IF NOT EXISTS tier TEXT DEFAULT '1'
-        """)
+        # Safe migrations for existing DBs
+        for col, defn in [
+            ("tier",            "TEXT DEFAULT '1'"),
+            ("enable_at",       "TIMESTAMP"),
+            ("disable_at",      "TIMESTAMP"),
+            ("schedule_status", "TEXT DEFAULT 'unscheduled'"),
+        ]:
+            cur.execute(f"ALTER TABLE wifi_requests ADD COLUMN IF NOT EXISTS {col} {defn}")
         db.commit()
         cur.close()
 
@@ -88,20 +100,117 @@ def meraki_headers():
     }
 
 def get_live_ssids():
-    """Fetch all 15 SSID slots from Meraki."""
     if not MERAKI_API_KEY or not MERAKI_NET_ID:
         return None, "Meraki not configured"
     try:
         resp = requests.get(
             f"{MERAKI_BASE}/networks/{MERAKI_NET_ID}/wireless/ssids",
-            headers=meraki_headers(),
-            timeout=10
+            headers=meraki_headers(), timeout=10
         )
         if resp.status_code == 200:
             return resp.json(), None
         return None, f"HTTP {resp.status_code}"
     except Exception as e:
         return None, str(e)
+
+def push_ssid_to_meraki(row, slot_index):
+    """Core push logic — used by both manual push and scheduler."""
+    tier_key  = str(row.get("tier") or "1")
+    tier      = TIERS.get(tier_key, TIERS["1"])
+    bw_kbps   = tier["kbps"]
+    resp = requests.put(
+        f"{MERAKI_BASE}/networks/{MERAKI_NET_ID}/wireless/ssids/{slot_index}",
+        headers=meraki_headers(),
+        json={
+            "name": row["ssid"],
+            "enabled": True,
+            "authMode": "psk",
+            "encryptionMode": "wpa",
+            "wpaEncryptionMode": "WPA2 only",
+            "psk": row["password"],
+            "perClientBandwidthLimitUp":   bw_kbps,
+            "perClientBandwidthLimitDown": bw_kbps,
+        },
+        timeout=10
+    )
+    return resp
+
+# ══════════════════════════════════════════════════════════════
+# SCHEDULER  (runs in background thread, checks every 60s)
+# ══════════════════════════════════════════════════════════════
+def scheduler_tick():
+    """Called every 60s. Enables/disables SSIDs based on schedule."""
+    if not MERAKI_API_KEY or not MERAKI_NET_ID:
+        return
+    try:
+        db  = get_scheduler_db()
+        cur = db.cursor()
+        now = datetime.now(timezone.utc)
+
+        # ── Auto-enable: pushed rows where enable_at has passed and not yet enabled
+        cur.execute("""
+            SELECT * FROM wifi_requests
+            WHERE status = 'pushed'
+              AND slot IS NOT NULL
+              AND enable_at IS NOT NULL
+              AND enable_at <= %s
+              AND (schedule_status IS NULL OR schedule_status NOT IN ('enabled', 'disabled'))
+        """, (now,))
+        to_enable = cur.fetchall()
+        for row in to_enable:
+            try:
+                slot_index = int(row["slot"]) - 1
+                push_ssid_to_meraki(row, slot_index)
+                cur.execute(
+                    "UPDATE wifi_requests SET schedule_status='enabled' WHERE id=%s",
+                    (row["id"],)
+                )
+                db.commit()
+                print(f"[scheduler] Enabled SSID '{row['ssid']}' on slot {row['slot']}")
+            except Exception as e:
+                print(f"[scheduler] Enable error for id {row['id']}: {e}")
+
+        # ── Auto-disable: pushed rows where disable_at has passed
+        cur.execute("""
+            SELECT * FROM wifi_requests
+            WHERE status = 'pushed'
+              AND slot IS NOT NULL
+              AND disable_at IS NOT NULL
+              AND disable_at <= %s
+              AND (schedule_status IS NULL OR schedule_status != 'disabled')
+        """, (now,))
+        to_disable = cur.fetchall()
+        for row in to_disable:
+            try:
+                slot_index = int(row["slot"]) - 1
+                requests.put(
+                    f"{MERAKI_BASE}/networks/{MERAKI_NET_ID}/wireless/ssids/{slot_index}",
+                    headers=meraki_headers(),
+                    json={"enabled": False},
+                    timeout=10
+                )
+                cur.execute(
+                    "UPDATE wifi_requests SET schedule_status='disabled' WHERE id=%s",
+                    (row["id"],)
+                )
+                db.commit()
+                print(f"[scheduler] Disabled SSID '{row['ssid']}' on slot {row['slot']}")
+            except Exception as e:
+                print(f"[scheduler] Disable error for id {row['id']}: {e}")
+
+        cur.close()
+        db.close()
+    except Exception as e:
+        print(f"[scheduler] tick error: {e}")
+
+def start_scheduler():
+    def loop():
+        import time
+        while True:
+            scheduler_tick()
+            time.sleep(60)
+    t = threading.Thread(target=loop, daemon=True)
+    t.start()
 
 # ══════════════════════════════════════════════════════════════
 # MANAGEMENT ROUTES
@@ -122,15 +231,14 @@ def submit():
     tier       = request.form.get("tier", "1").strip()
 
     errors = []
-    if not conf_name:  errors.append("Event name is required.")
-    if not ssid:       errors.append("Network name is required.")
-    if len(ssid) > 32: errors.append("Network name must be 32 characters or less.")
-    if len(password) < 8: errors.append("Password must be at least 8 characters.")
+    if not conf_name:      errors.append("Event name is required.")
+    if not ssid:           errors.append("Network name is required.")
+    if len(ssid) > 32:     errors.append("Network name must be 32 characters or less.")
+    if len(password) < 8:  errors.append("Password must be at least 8 characters.")
     if not start_date or not end_date: errors.append("Start and end dates are required.")
     if start_date and end_date and end_date < start_date:
         errors.append("End date must be after start date.")
-    if tier not in TIERS:
-        errors.append("Invalid tier selected.")
+    if tier not in TIERS:  errors.append("Invalid tier selected.")
 
     if errors:
         return render_template("request.html", errors=errors, form=request.form, tiers=TIERS)
@@ -172,9 +280,7 @@ def admin_panel():
     cur.execute("SELECT * FROM wifi_requests ORDER BY submitted_at DESC")
     requests_list = cur.fetchall()
     cur.close()
-
     live_ssids, ssid_error = get_live_ssids()
-
     return render_template(
         "admin.html",
         requests=requests_list,
@@ -187,7 +293,6 @@ def admin_panel():
 @app.route("/admin/ssids")
 @admin_required
 def api_live_ssids():
-    """Returns live SSID data for JS refresh."""
     ssids, err = get_live_ssids()
     if err:
         return jsonify({"ok": False, "error": err})
@@ -196,7 +301,6 @@ def api_live_ssids():
 @app.route("/admin/ssid/toggle", methods=["POST"])
 @admin_required
 def toggle_ssid():
-    """Enable or disable an SSID slot."""
     data    = request.json or {}
     slot    = data.get("slot")
     enabled = data.get("enabled")
@@ -235,30 +339,14 @@ def push_ssid(req_id):
         return jsonify({"ok": False, "error": "No slot provided"}), 400
     if not MERAKI_API_KEY or not MERAKI_NET_ID:
         cur.close()
-        return jsonify({"ok": False, "error": "Meraki not configured on server"}), 500
+        return jsonify({"ok": False, "error": "Meraki not configured"}), 500
 
-    # Tier → bandwidth limits in kbps
     tier_key = str(row.get("tier") or "1")
-    tier_mbps = TIERS.get(tier_key, TIERS["1"])["mbps"]
-    bw_kbps = tier_mbps * 1000
-
+    tier     = TIERS.get(tier_key, TIERS["1"])
     slot_index = int(slot) - 1
+
     try:
-        resp = requests.put(
-            f"{MERAKI_BASE}/networks/{MERAKI_NET_ID}/wireless/ssids/{slot_index}",
-            headers=meraki_headers(),
-            json={
-                "name": row["ssid"],
-                "enabled": True,
-                "authMode": "psk",
-                "encryptionMode": "wpa",
-                "wpaEncryptionMode": "WPA2 only",
-                "psk": row["password"],
-                "perClientBandwidthLimitUp":   bw_kbps,
-                "perClientBandwidthLimitDown": bw_kbps,
-            },
-            timeout=10
-        )
+        resp = push_ssid_to_meraki(row, slot_index)
         if resp.status_code == 200:
             cur.execute(
                 "UPDATE wifi_requests SET status='pushed', slot=%s, pushed_at=NOW(), error_msg=NULL WHERE id=%s",
@@ -266,7 +354,7 @@ def push_ssid(req_id):
             )
             db.commit()
             cur.close()
-            return jsonify({"ok": True, "ssid": row["ssid"], "slot": slot, "mbps": tier_mbps})
+            return jsonify({"ok": True, "ssid": row["ssid"], "slot": slot, "mbps": tier["mbps"]})
         else:
             err = resp.json().get("errors", [f"HTTP {resp.status_code}"])
             err_str = ", ".join(err) if isinstance(err, list) else str(err)
@@ -279,6 +367,38 @@ def push_ssid(req_id):
         db.commit()
         cur.close()
         return jsonify({"ok": False, "error": str(e)})
+
+@app.route("/admin/schedule/<int:req_id>", methods=["POST"])
+@admin_required
+def set_schedule(req_id):
+    """Set or clear enable_at / disable_at for a pushed request."""
+    data       = request.json or {}
+    enable_at  = data.get("enable_at")   # ISO string or None
+    disable_at = data.get("disable_at")  # ISO string or None
+
+    def parse_dt(val):
+        if not val:
+            return None
+        # Accept "2025-08-01T08:00" from datetime-local input
+        for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
+            try:
+                return datetime.strptime(val, fmt).replace(tzinfo=timezone.utc)
+            except ValueError:
+                continue
+        return None
+
+    ea = parse_dt(enable_at)
+    da = parse_dt(disable_at)
+
+    db = get_db()
+    cur = db.cursor()
+    cur.execute(
+        "UPDATE wifi_requests SET enable_at=%s, disable_at=%s, schedule_status='scheduled' WHERE id=%s",
+        (ea, da, req_id)
+    )
+    db.commit()
+    cur.close()
+    return jsonify({"ok": True, "enable_at": str(ea), "disable_at": str(da)})
 
 @app.route("/admin/delete/<int:req_id>", methods=["POST"])
 @admin_required
@@ -300,8 +420,9 @@ def queue_status():
     cur.close()
     return jsonify(rows)
 
-if __name__ == "__main__":
-    init_db()
-    app.run(debug=True)
-
+# ── Boot ──────────────────────────────────────────────────────
 init_db()
+start_scheduler()
+
+if __name__ == "__main__":
+    app.run(debug=True)

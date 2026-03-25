@@ -123,6 +123,21 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 @keyframes blink { from{opacity:.4} to{opacity:1} }
 .error-msg { font-family: var(--mono); font-size: 11px; color: var(--red); margin-top: 8px; padding: 7px 11px; background: rgba(241,76,76,0.07); border-left: 2px solid var(--red); border-radius: 2px; }
 
+/* SCHEDULE PANEL */
+.schedule-panel { margin-top: 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: 3px; padding: 12px 14px; }
+.schedule-panel-title { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); margin-bottom: 10px; }
+.schedule-row { display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: end; }
+.sched-field { display: flex; flex-direction: column; gap: 4px; }
+.sched-label { font-family: var(--mono); font-size: 10px; color: var(--muted); letter-spacing: 0.06em; }
+.sched-input { background: var(--bg); border: 1px solid var(--border); color: var(--text); font-family: var(--mono); font-size: 11px; padding: 6px 9px; border-radius: 3px; outline: none; width: 100%; }
+.sched-input:focus { border-color: var(--accent); }
+.btn-sched { background: rgba(167,139,250,0.12); color: var(--purple); border: 1px solid rgba(167,139,250,0.35); font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.07em; text-transform: uppercase; padding: 7px 12px; border-radius: 3px; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+.btn-sched:hover { background: rgba(167,139,250,0.22); }
+.sched-status { font-family: var(--mono); font-size: 10px; margin-top: 8px; padding: 5px 9px; border-radius: 2px; }
+.sched-status.scheduled { color: var(--purple); background: rgba(167,139,250,0.08); border: 1px solid rgba(167,139,250,0.2); }
+.sched-status.enabled   { color: var(--green);  background: rgba(35,209,139,0.08);  border: 1px solid rgba(35,209,139,0.2); }
+.sched-status.disabled  { color: var(--dim);    background: rgba(118,131,144,0.08); border: 1px solid rgba(118,131,144,0.2); }
+
 /* PUSH ALL BAR */
 .push-bar { display: flex; align-items: center; justify-content: space-between; padding: 13px 18px; border-top: 1px solid var(--border); background: var(--surface2); }
 .push-bar-info { font-family: var(--mono); font-size: 11px; color: var(--dim); }
@@ -236,6 +251,36 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
             {% if r.error_msg %}
             <div class="error-msg" id="err-{{ r.id }}">Error: {{ r.error_msg }}</div>
             {% endif %}
+
+            {% if r.status == 'pushed' %}
+            <div class="schedule-panel">
+              <div class="schedule-panel-title">⏰ Auto Schedule</div>
+              <div class="schedule-row">
+                <div class="sched-field">
+                  <span class="sched-label">Enable At</span>
+                  <input class="sched-input" type="datetime-local" id="ea-{{ r.id }}"
+                    value="{{ r.enable_at.strftime('%Y-%m-%dT%H:%M') if r.enable_at else '' }}">
+                </div>
+                <div class="sched-field">
+                  <span class="sched-label">Disable At</span>
+                  <input class="sched-input" type="datetime-local" id="da-{{ r.id }}"
+                    value="{{ r.disable_at.strftime('%Y-%m-%dT%H:%M') if r.disable_at else '' }}">
+                </div>
+                <button class="btn-sched" onclick="saveSchedule({{ r.id }})">Save</button>
+              </div>
+              {% if r.schedule_status and r.schedule_status not in ('unscheduled', None) %}
+              <div class="sched-status {{ r.schedule_status }}" id="ss-{{ r.id }}">
+                {% if r.schedule_status == 'scheduled' %}⏳ Scheduled — will auto-enable/disable
+                {% elif r.schedule_status == 'enabled' %}✓ Auto-enabled by scheduler
+                {% elif r.schedule_status == 'disabled' %}○ Auto-disabled by scheduler
+                {% endif %}
+              </div>
+              {% else %}
+              <div class="sched-status" id="ss-{{ r.id }}" style="display:none"></div>
+              {% endif %}
+            </div>
+            {% endif %}
+
           </div>
           {% endfor %}
         {% endif %}
@@ -539,6 +584,32 @@ function toast(msg, type) {
   el.className = 'toast ' + type; el.textContent = msg;
   document.getElementById('toasts').appendChild(el);
   setTimeout(() => el.remove(), 4500);
+}
+
+// ── Save schedule ─────────────────────────────────────────
+async function saveSchedule(id) {
+  const ea = document.getElementById('ea-' + id)?.value;
+  const da = document.getElementById('da-' + id)?.value;
+  if (!ea && !da) { toast('Set at least one date/time', 'e'); return; }
+  try {
+    const res  = await fetch('/admin/schedule/' + id, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enable_at: ea || null, disable_at: da || null })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      const el = document.getElementById('ss-' + id);
+      if (el) {
+        el.className = 'sched-status scheduled';
+        el.style.display = '';
+        el.textContent = '⏳ Scheduled — will auto-enable/disable';
+      }
+      toast('Schedule saved', 's');
+    } else {
+      toast('Save failed: ' + data.error, 'e');
+    }
+  } catch(e) { toast('Error: ' + e.message, 'e'); }
 }
 
 // Init: load SSIDs in background to enrich slot dropdowns
