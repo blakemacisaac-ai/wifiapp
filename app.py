@@ -306,7 +306,7 @@ def submit():
         f">*Dates:* {start_date} → {end_date}\n"
         f">*Tier:* {tier_info['label']} ({tier_info['mbps']} Mbps)\n"
         f">*Notes:* {notes or '—'}\n"
-        f">_Review it in the <https://web-production-eebee.up.railway.app/admin|IT Admin Panel>_"
+        f">_Review it in the <https://aqsarniithotel.up.railway.app/admin|IT Admin Panel>_"
     )
 
     return render_template("request.html", success=True, tiers=TIERS)
