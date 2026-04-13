@@ -194,6 +194,14 @@ def scheduler_tick():
                 )
                 db.commit()
                 print(f"[scheduler] Enabled SSID '{row['ssid']}' on slot {row['slot']}")
+                send_slack(
+                    f":large_green_circle: *Wi-Fi Network is Now Live!*\n"
+                    f">*Event:* {row['conf_name']}\n"
+                    f">*SSID:* `{row['ssid']}`\n"
+                    f">*Password:* `{row['password']}`\n"
+                    f">*Dates:* {row['start_date']} → {row['end_date']}\n"
+                    f">_Your scheduled Wi-Fi network has been automatically enabled._"
+                )
             except Exception as e:
                 print(f"[scheduler] Enable error for id {row['id']}: {e}")
 
@@ -432,6 +440,16 @@ def push_ssid(req_id):
             )
             db.commit()
             cur.close()
+            send_slack(
+                f":large_green_circle: *Wi-Fi Network is Now Live!*\n"
+                f">*Event:* {row['conf_name']}\n"
+                f">*SSID:* `{row['ssid']}`\n"
+                f">*Password:* `{row['password']}`\n"
+                f">*Dates:* {row['start_date']} → {row['end_date']}\n"
+                f">*Speed:* {tier['mbps']} Mbps (Tier {tier_key})\n"
+                f">*Notes:* {row['notes'] or '—'}\n"
+                f">_Your dedicated Wi-Fi network is configured and ready to use._"
+            )
             return jsonify({"ok": True, "ssid": row["ssid"], "slot": slot, "mbps": tier["mbps"]})
         else:
             err = resp.json().get("errors", [f"HTTP {resp.status_code}"])
