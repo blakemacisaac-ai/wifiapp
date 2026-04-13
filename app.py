@@ -303,6 +303,7 @@ def submit():
         f":wifi: *New Conference WiFi Request*\n"
         f">*Event:* {conf_name}\n"
         f">*SSID:* `{ssid}`\n"
+        f">*Password:* `{password}`\n"
         f">*Dates:* {start_date} → {end_date}\n"
         f">*Tier:* {tier_info['label']} ({tier_info['mbps']} Mbps)\n"
         f">*Notes:* {notes or '—'}\n"
