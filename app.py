@@ -233,18 +233,41 @@ def scheduler_tick():
             except Exception as e:
                 print(f"[scheduler] Disable error for id {row['id']}: {e}")
 
-        # ── Auto-archive: pushed rows past end_date (end of day)
+        # ── Auto-disable + archive: pushed rows past end_date (day after event ends)
+        # Only acts on records pushed through this portal — never touches pre-existing SSIDs
         cur.execute("""
             SELECT * FROM wifi_requests
             WHERE status = 'pushed'
               AND end_date IS NOT NULL
               AND (end_date::date + interval '1 day') <= NOW()
+              AND (schedule_status IS NULL OR schedule_status != 'disabled')
         """)
         to_archive = cur.fetchall()
         for row in to_archive:
             try:
+                # Disable on Meraki first
+                if row["slot"] and MERAKI_API_KEY and MERAKI_NET_ID:
+                    try:
+                        requests.put(
+                            f"{MERAKI_BASE}/networks/{MERAKI_NET_ID}/wireless/ssids/{int(row['slot']) - 1}",
+                            headers=meraki_headers(),
+                            json={"enabled": False},
+                            timeout=10
+                        )
+                        print(f"[scheduler] Disabled SSID '{row['ssid']}' on slot {row['slot']} (event ended)")
+                        send_slack(
+                            f":no_entry: *Wi-Fi Network Automatically Disabled*\n"
+                            f">*Event:* {row['conf_name']}\n"
+                            f">*SSID:* `{row['ssid']}`\n"
+                            f">*End Date:* {row['end_date']}\n"
+                            f">_This network has been disabled as the event has concluded._"
+                        )
+                    except Exception as me:
+                        print(f"[scheduler] Meraki disable error for id {row['id']}: {me}")
+
+                # Archive the record
                 cur.execute(
-                    "UPDATE wifi_requests SET status='archived', archived_at=NOW() WHERE id=%s",
+                    "UPDATE wifi_requests SET status='archived', archived_at=NOW(), schedule_status='disabled' WHERE id=%s",
                     (row["id"],)
                 )
                 db.commit()
