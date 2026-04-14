@@ -337,6 +337,11 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
                 </span>
               {% endif %}
             {% endif %}
+            {% if r.schedule_status not in ('disabled', 'archived') %}
+              <span class="tag" style="color:var(--amber);border-color:rgba(226,166,65,0.3);background:rgba(226,166,65,0.06)">
+                🕛 Auto-disables {{ r.end_date }} at 11:59 PM EST
+              </span>
+            {% endif %}
           </div>
 
           <!-- Edit Schedule -->

@@ -233,13 +233,14 @@ def scheduler_tick():
             except Exception as e:
                 print(f"[scheduler] Disable error for id {row['id']}: {e}")
 
-        # ── Auto-disable + archive: pushed rows past end_date (day after event ends)
+        # ── Auto-disable + archive: disable at 11:59 PM EST (UTC-5) on end_date
+        # 23:59 EST = 04:59 UTC next day, so end_date + 28hrs 59min
         # Only acts on records pushed through this portal — never touches pre-existing SSIDs
         cur.execute("""
             SELECT * FROM wifi_requests
             WHERE status = 'pushed'
               AND end_date IS NOT NULL
-              AND (end_date::date + interval '1 day') <= NOW()
+              AND (end_date::date + interval '28 hours 59 minutes') <= NOW()
               AND (schedule_status IS NULL OR schedule_status != 'disabled')
         """)
         to_archive = cur.fetchall()
