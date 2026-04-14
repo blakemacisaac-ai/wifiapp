@@ -47,7 +47,9 @@ def close_db(exception):
 
 def get_scheduler_db():
     """Separate DB connection for the scheduler thread (not Flask g)."""
-    return psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.RealDictCursor)
+    conn = psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.RealDictCursor)
+    conn.autocommit = False  # explicit transactions required for FOR UPDATE SKIP LOCKED
+    return conn
 
 def init_db():
     with app.app_context():
@@ -325,10 +327,13 @@ def scheduler_tick():
         today_est = (now + _dt.timedelta(hours=-5)).strftime('%Y-%m-%d')
         auto_slots = get_auto_slots_db()
 
+        # FOR UPDATE SKIP LOCKED ensures two scheduler instances never
+        # process the same row simultaneously (handles Railway restarts)
         cur.execute("""
             SELECT * FROM wifi_requests
             WHERE status = 'auto'
             ORDER BY start_date ASC, submitted_at ASC
+            FOR UPDATE SKIP LOCKED
         """)
         auto_queue = cur.fetchall()
 
