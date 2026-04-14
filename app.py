@@ -519,6 +519,53 @@ def set_schedule(req_id):
     cur.close()
     return jsonify({"ok": True, "enable_at": str(ea), "disable_at": str(da)})
 
+@app.route("/admin/update/<int:req_id>", methods=["POST"])
+@admin_required
+def update_request(req_id):
+    """Update end_date, enable_at, disable_at on an active pushed request."""
+    data       = request.json or {}
+    end_date   = data.get("end_date", "").strip()
+    enable_at  = data.get("enable_at")
+    disable_at = data.get("disable_at")
+
+    if not end_date:
+        return jsonify({"ok": False, "error": "End date required"}), 400
+
+    def parse_dt(val):
+        if not val:
+            return None
+        for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M", "%Y-%m-%d"):
+            try:
+                return datetime.strptime(val, fmt).replace(tzinfo=timezone.utc)
+            except ValueError:
+                continue
+        return None
+
+    ea = parse_dt(enable_at)
+    da = parse_dt(disable_at)
+    sched_status = "scheduled" if (ea or da) else "unscheduled"
+
+    db = get_db()
+    cur = db.cursor()
+    cur.execute("SELECT start_date FROM wifi_requests WHERE id=%s", (req_id,))
+    row = cur.fetchone()
+    if not row:
+        cur.close()
+        return jsonify({"ok": False, "error": "Request not found"}), 404
+
+    cur.execute("""
+        UPDATE wifi_requests
+        SET end_date=%s, enable_at=%s, disable_at=%s, schedule_status=%s
+        WHERE id=%s
+    """, (end_date, ea, da, sched_status, req_id))
+    db.commit()
+    cur.close()
+    return jsonify({
+        "ok":         True,
+        "start_date": row["start_date"],
+        "end_date":   end_date
+    })
+
 @app.route("/admin/delete/<int:req_id>", methods=["POST"])
 @admin_required
 def delete_request(req_id):
