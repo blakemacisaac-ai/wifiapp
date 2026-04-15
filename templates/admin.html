@@ -184,6 +184,22 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 .toast.e { border-color: var(--red);   color: var(--red); }
 .toast.i { border-color: var(--accent);color: var(--accent); }
 
+/* SETTINGS TAB */
+.settings-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; margin-bottom: 20px; }
+.settings-hdr { background: var(--surface2); border-bottom: 1px solid var(--border); padding: 14px 18px; }
+.settings-title { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim); }
+.settings-body { padding: 20px 18px; }
+.settings-desc { font-size: 13px; color: var(--dim); margin-bottom: 16px; line-height: 1.6; }
+.slot-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 20px; }
+.slot-check { display: flex; align-items: center; gap: 7px; background: var(--bg); border: 1px solid var(--border); border-radius: 3px; padding: 8px 10px; cursor: pointer; transition: all 0.15s; }
+.slot-check:hover { border-color: var(--purple); }
+.slot-check input[type=checkbox] { accent-color: var(--purple); width: 14px; height: 14px; cursor: pointer; }
+.slot-check label { font-family: var(--mono); font-size: 11px; color: var(--dim); cursor: pointer; }
+.slot-check.checked { border-color: rgba(167,139,250,0.4); background: rgba(167,139,250,0.06); }
+.slot-check.checked label { color: var(--purple); }
+.btn-save-settings { background: rgba(167,139,250,0.12); color: var(--purple); border: 1px solid rgba(167,139,250,0.4); font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; padding: 10px 20px; border-radius: 3px; cursor: pointer; transition: all 0.15s; }
+.btn-save-settings:hover { background: rgba(167,139,250,0.22); }
+
 @media(max-width:700px) { .stats{grid-template-columns:1fr 1fr} .layout{padding:14px} .ssid-grid{grid-template-columns:1fr 1fr} .sched-inline{grid-template-columns:1fr} }
 </style>
 </head>
@@ -205,6 +221,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
   <div class="tab active" onclick="switchTab('queue')">Request Queue</div>
   <div class="tab" onclick="switchTab('ssids')">Live SSIDs</div>
   <a class="tab" href="/admin/history" style="text-decoration:none">Billing History</a>
+  <div class="tab" onclick="switchTab('settings')">⚙ Settings</div>
 </div>
 
 <div class="layout">
@@ -435,6 +452,37 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
     </div>
   </div>
 
+  <!-- ══ SETTINGS TAB ══ -->
+  <div class="tab-content" id="tab-settings">
+    <div class="settings-panel">
+      <div class="settings-hdr">
+        <span class="settings-title">⚙ Automation Settings — SSID Slot Pool</span>
+      </div>
+      <div class="settings-body">
+        <p class="settings-desc">
+          Select which SSID slots are available for automatic provisioning.
+          The scheduler picks the highest-numbered free slot from this pool.
+          Slots not checked here will never be touched by automation.<br><br>
+          <strong style="color:var(--amber)">Note:</strong> Slots 1–2 are reserved for permanent hotel SSIDs. Do not include them.
+        </p>
+        <div class="slot-grid" id="slot-checkboxes">
+          {% for i in range(1, 16) %}
+          <div class="slot-check {% if i in auto_slot_list %}checked{% endif %}" id="slot-wrap-{{ i }}">
+            <input type="checkbox" id="aslot-{{ i }}" value="{{ i }}"
+              {% if i in auto_slot_list %}checked{% endif %}
+              onchange="toggleSlotCheck({{ i }}, this.checked)">
+            <label for="aslot-{{ i }}">Slot {{ i }}</label>
+          </div>
+          {% endfor %}
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <button class="btn-save-settings" onclick="saveSettings()">↑ Save Slot Pool</button>
+          <span id="settings-status" style="font-family:var(--mono);font-size:11px;color:var(--dim)"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <!-- ARCHIVE MODAL -->
@@ -463,11 +511,11 @@ let _archiveId = null;
 // ── Tab switching ──────────────────────────────────────────
 function switchTab(name) {
   document.querySelectorAll('.tab').forEach((t, i) => {
-    const names = ['queue', 'ssids'];
+    const names = ['queue', 'ssids', null, 'settings'];
     t.classList.toggle('active', names[i] === name);
   });
   document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-  document.getElementById('tab-' + name).classList.add('active');
+  document.getElementById('tab-' + name)?.classList.add('active');
   if (name === 'ssids') loadSSIDs();
 }
 
@@ -701,6 +749,32 @@ function toast(msg, type) {
   el.className = 'toast '+type; el.textContent = msg;
   document.getElementById('toasts').appendChild(el);
   setTimeout(() => el.remove(), 4500);
+}
+
+// ── Settings ───────────────────────────────────────────────
+function toggleSlotCheck(slot, checked) {
+  const wrap = document.getElementById('slot-wrap-' + slot);
+  if (wrap) wrap.classList.toggle('checked', checked);
+}
+
+async function saveSettings() {
+  const slots = [];
+  for (let i = 1; i <= 15; i++) {
+    if (document.getElementById('aslot-' + i)?.checked) slots.push(i);
+  }
+  try {
+    const res  = await fetch('/admin/settings', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ slots })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      const el = document.getElementById('settings-status');
+      if (el) { el.textContent = '✓ Saved — ' + slots.length + ' slot(s) in pool'; el.style.color = 'var(--green)'; }
+      toast('Automation slot pool saved', 's');
+    } else { toast('Save failed', 'e'); }
+  } catch(e) { toast('Error: ' + e.message, 'e'); }
 }
 
 // Init
