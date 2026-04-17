@@ -134,6 +134,14 @@ body { font-family: "DM Sans", sans-serif; background: var(--cream); min-height:
 .pw-wrap input { padding-right: 44px; }
 .pw-eye { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--text-dim); font-size: 17px; padding: 0; line-height: 1; }
 
+/* ACCESS CODE */
+.access-field { background: var(--cream2); border: 1.5px solid var(--warm); border-radius: 4px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
+.access-field label { font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-mid); }
+.access-field input { background: #fff; border: 1.5px solid var(--warm); color: var(--text); font-family: "DM Sans", sans-serif; font-size: 15px; padding: 10px 13px; border-radius: 3px; outline: none; transition: border-color 0.2s; }
+.access-field input:focus { border-color: var(--green-accent); }
+.access-field input::placeholder { color: #bbb; }
+.access-field .hint { font-size: 12px; color: var(--text-dim); }
+
 /* TIER SELECTOR */
 .tier-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .tier-opt input[type=radio] { display: none; }
@@ -232,6 +240,16 @@ body { font-family: "DM Sans", sans-serif; background: var(--cream); min-height:
     </div>
     <form method="POST" action="/submit">
       <div class="form-inner">
+
+        {% if not success %}
+        <div class="access-field">
+          <label for="portal_password">🔒 Access Code</label>
+          <input type="password" id="portal_password" name="portal_password"
+            placeholder="Enter the portal access code"
+            autocomplete="off" required>
+          <span class="hint">Contact the front desk or IT if you don't have the access code.</span>
+        </div>
+        {% endif %}
 
         <div class="field">
           <label for="conf_name">Organization / Group</label>
