@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Conference WiFi Portal — Aqsarniit Hotel & Conference Centre</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --green-dark: #1e3a2a; --green-mid: #2d5a3d; --green-light: #4a8c5c;
+  --green-accent: #5aad70; --green-pale: #e8f5ec;
+  --cream: #fafaf7; --cream2: #f2f2ed; --warm: #e2e2da;
+  --text: #1a1f1c; --text-mid: #445248; --text-dim: #7a8c80;
+  --red: #c0392b; --red-bg: #fdf2f1; --red-border: #e8b4b0;
+}
+body {
+  font-family: "DM Sans", sans-serif;
+  background: var(--green-dark);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  position: relative;
+  overflow: hidden;
+}
+body::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 80% 60% at 50% 100%, rgba(90,173,112,0.15) 0%, transparent 65%);
+  pointer-events: none;
+}
+
+/* CARD */
+.login-card {
+  background: var(--cream);
+  border-radius: 8px;
+  width: 100%;
+  max-width: 400px;
+  overflow: hidden;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.4);
+  animation: fadeUp 0.35s ease;
+  position: relative;
+  z-index: 1;
+}
+@keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+/* CARD HEADER */
+.card-top {
+  background: var(--green-dark);
+  padding: 32px 32px 28px;
+  text-align: center;
+  position: relative;
+}
+.card-top::after {
+  content: "";
+  position: absolute;
+  bottom: 0; left: 15%; right: 15%;
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(90,173,112,0.5), transparent);
+}
+.hotel-name {
+  font-family: "Cormorant Garamond", serif;
+  font-size: 22px;
+  font-weight: 400;
+  color: #fff;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+}
+.portal-label {
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.4);
+}
+.green-rule {
+  width: 28px; height: 2px;
+  background: var(--green-accent);
+  border-radius: 2px;
+  margin: 14px auto 0;
+}
+
+/* CARD BODY */
+.card-body { padding: 32px; }
+.card-title {
+  font-family: "Cormorant Garamond", serif;
+  font-size: 24px;
+  font-weight: 400;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.card-sub {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-bottom: 28px;
+  line-height: 1.5;
+}
+
+/* ERROR */
+.alert-error {
+  background: var(--red-bg);
+  border: 1px solid var(--red-border);
+  color: var(--red);
+  font-size: 13px;
+  padding: 11px 14px;
+  border-radius: 4px;
+  margin-bottom: 20px;
+}
+
+/* FIELD */
+.field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 20px; }
+.field label {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-mid);
+}
+.field input {
+  background: var(--cream2);
+  border: 1.5px solid var(--warm);
+  color: var(--text);
+  font-family: "DM Sans", sans-serif;
+  font-size: 15px;
+  padding: 12px 14px;
+  border-radius: 4px;
+  outline: none;
+  transition: border-color 0.2s, background 0.2s;
+  width: 100%;
+}
+.field input:focus { border-color: var(--green-accent); background: #fff; }
+.field input::placeholder { color: #bbb; }
+
+/* SUBMIT */
+.login-btn {
+  background: var(--green-dark);
+  color: rgba(255,255,255,0.92);
+  border: none;
+  font-family: "DM Sans", sans-serif;
+  font-size: 13px; font-weight: 500;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  padding: 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  width: 100%;
+  transition: background 0.2s;
+  position: relative; overflow: hidden;
+}
+.login-btn:hover { background: var(--green-mid); }
+.login-btn::after {
+  content: "";
+  position: absolute; bottom: 0; left: 0; right: 0; height: 2px;
+  background: var(--green-accent);
+}
+
+/* FOOTER */
+.card-footer {
+  padding: 14px 32px 24px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.card-footer a { color: var(--green-light); text-decoration: none; }
+</style>
+</head>
+<body>
+
+<div class="login-card">
+  <div class="card-top">
+    <div class="hotel-name">Aqsarniit Hotel &amp; Conference Centre</div>
+    <div class="portal-label">Conference Services</div>
+    <div class="green-rule"></div>
+  </div>
+
+  <div class="card-body">
+    <div class="card-title">WiFi Portal</div>
+    <div class="card-sub">Enter your access code to submit a WiFi request for your event.</div>
+
+    {% if error %}
+    <div class="alert-error">{{ error }}</div>
+    {% endif %}
+
+    <form method="POST" action="/portal/login">
+      <div class="field">
+        <label for="portal_password">Access Code</label>
+        <input type="password" id="portal_password" name="portal_password"
+          placeholder="Enter access code"
+          autocomplete="current-password"
+          autofocus required>
+      </div>
+      <button type="submit" class="login-btn">Continue →</button>
+    </form>
+  </div>
+
+  <div class="card-footer">
+    Need help? Contact IT at <a href="mailto:support@panarctic.net">support@panarctic.net</a>
+  </div>
+</div>
+
+</body>
+</html>

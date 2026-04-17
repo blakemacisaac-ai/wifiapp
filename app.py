@@ -133,6 +133,14 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated
 
+def portal_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if PORTAL_PASSWORD and not session.get("portal"):
+            return redirect(url_for("portal_login"))
+        return f(*args, **kwargs)
+    return decorated
+
 # ── Slack notifications ───────────────────────────────────
 def send_slack(msg):
     if not SLACK_WEBHOOK:
@@ -330,22 +338,43 @@ def start_scheduler():
     t.start()
 
 # ══════════════════════════════════════════════════════════════
+# PORTAL LOGIN ROUTES
+# ══════════════════════════════════════════════════════════════
+
+@app.route("/portal/login", methods=["GET", "POST"])
+@limiter.limit("10 per hour")
+def portal_login():
+    if not PORTAL_PASSWORD:
+        return redirect(url_for("index"))
+    if session.get("portal"):
+        return redirect(url_for("index"))
+    error = None
+    if request.method == "POST":
+        if request.form.get("portal_password", "").strip() == PORTAL_PASSWORD:
+            session.permanent = True
+            session["portal"] = True
+            return redirect(url_for("index"))
+        error = "Incorrect access code. Please contact IT or the front desk."
+    return render_template("portal_login.html", error=error)
+
+@app.route("/portal/logout")
+def portal_logout():
+    session.pop("portal", None)
+    return redirect(url_for("portal_login"))
+
+# ══════════════════════════════════════════════════════════════
 # MANAGEMENT ROUTES
 # ══════════════════════════════════════════════════════════════
 
 @app.route("/", methods=["GET"])
+@portal_required
 def index():
     return render_template("request.html", tiers=TIERS)
 
 @app.route("/submit", methods=["POST"])
+@portal_required
 @limiter.limit("10 per hour")
 def submit():
-    # Portal passphrase check — prevents public misuse
-    if PORTAL_PASSWORD:
-        entered = request.form.get("portal_password", "").strip()
-        if entered != PORTAL_PASSWORD:
-            return render_template("request.html", errors=["Incorrect access code. Please contact the front desk."], form=request.form, tiers=TIERS)
-
     conf_name  = request.form.get("conf_name", "").strip()
     ssid       = request.form.get("ssid", "").strip().replace(" ", "-")
     password   = request.form.get("password", "").strip()
