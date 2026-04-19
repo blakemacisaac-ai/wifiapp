@@ -283,17 +283,20 @@ def scheduler_tick():
               AND enable_at IS NOT NULL
               AND enable_at <= %s
               AND (schedule_status IS NULL OR schedule_status NOT IN ('enabled', 'disabled'))
+            FOR UPDATE SKIP LOCKED
         """, (now,))
         to_enable = cur.fetchall()
         for row in to_enable:
             try:
-                slot_index = int(row["slot"]) - 1
-                push_ssid_to_meraki(row, slot_index)
+                # Mark enabled FIRST so no other tick picks it up
                 cur.execute(
                     "UPDATE wifi_requests SET schedule_status='enabled' WHERE id=%s",
                     (row["id"],)
                 )
                 db.commit()
+                # Then push to Meraki and notify
+                slot_index = int(row["slot"]) - 1
+                push_ssid_to_meraki(row, slot_index)
                 print(f"[scheduler] Enabled SSID '{row['ssid']}' on slot {row['slot']}")
                 send_slack(
                     f":large_green_circle: *Wi-Fi Network is Now Live!*\n"
@@ -314,10 +317,17 @@ def scheduler_tick():
               AND disable_at IS NOT NULL
               AND disable_at <= %s
               AND (schedule_status IS NULL OR schedule_status != 'disabled')
+            FOR UPDATE SKIP LOCKED
         """, (now,))
         to_disable = cur.fetchall()
         for row in to_disable:
             try:
+                # Mark disabled FIRST so no other tick picks it up
+                cur.execute(
+                    "UPDATE wifi_requests SET schedule_status='disabled' WHERE id=%s",
+                    (row["id"],)
+                )
+                db.commit()
                 slot_index = int(row["slot"]) - 1
                 requests.put(
                     f"{MERAKI_BASE}/networks/{MERAKI_NET_ID}/wireless/ssids/{slot_index}",
@@ -325,11 +335,6 @@ def scheduler_tick():
                     json={"enabled": False},
                     timeout=10
                 )
-                cur.execute(
-                    "UPDATE wifi_requests SET schedule_status='disabled' WHERE id=%s",
-                    (row["id"],)
-                )
-                db.commit()
                 print(f"[scheduler] Disabled SSID '{row['ssid']}' on slot {row['slot']}")
             except Exception as e:
                 print(f"[scheduler] Disable error for id {row['id']}: {e}")
@@ -343,11 +348,19 @@ def scheduler_tick():
               AND end_date IS NOT NULL
               AND (end_date::date + interval '28 hours 59 minutes') <= NOW()
               AND (schedule_status IS NULL OR schedule_status != 'disabled')
+            FOR UPDATE SKIP LOCKED
         """)
         to_archive = cur.fetchall()
         for row in to_archive:
             try:
-                # Disable on Meraki first
+                # Archive FIRST so no other tick picks this row up
+                cur.execute(
+                    "UPDATE wifi_requests SET status='archived', archived_at=NOW(), schedule_status='disabled' WHERE id=%s",
+                    (row["id"],)
+                )
+                db.commit()
+                print(f"[scheduler] Auto-archived '{row['ssid']}' (end_date passed)")
+                # Then disable on Meraki and notify
                 if row["slot"] and MERAKI_API_KEY and MERAKI_NET_ID:
                     try:
                         requests.put(
@@ -357,23 +370,15 @@ def scheduler_tick():
                             timeout=10
                         )
                         print(f"[scheduler] Disabled SSID '{row['ssid']}' on slot {row['slot']} (event ended)")
-                        send_slack(
-                            f":no_entry: *Wi-Fi Network Automatically Disabled*\n"
-                            f">*Event:* {row['conf_name']}\n"
-                            f">*SSID:* `{row['ssid']}`\n"
-                            f">*End Date:* {row['end_date']}\n"
-                            f">_This network has been disabled as the event has concluded._"
-                        )
                     except Exception as me:
                         print(f"[scheduler] Meraki disable error for id {row['id']}: {me}")
-
-                # Archive the record
-                cur.execute(
-                    "UPDATE wifi_requests SET status='archived', archived_at=NOW(), schedule_status='disabled' WHERE id=%s",
-                    (row["id"],)
+                send_slack(
+                    f":no_entry: *Wi-Fi Network Automatically Disabled*\n"
+                    f">*Event:* {row['conf_name']}\n"
+                    f">*SSID:* `{row['ssid']}`\n"
+                    f">*End Date:* {row['end_date']}\n"
+                    f">_This network has been disabled as the event has concluded._"
                 )
-                db.commit()
-                print(f"[scheduler] Auto-archived '{row['ssid']}' (end_date passed)")
             except Exception as e:
                 print(f"[scheduler] Archive error for id {row['id']}: {e}")
 
