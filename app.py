@@ -174,6 +174,18 @@ def find_free_auto_slot(auto_slots):
     if not auto_slots or not MERAKI_API_KEY or not MERAKI_NET_ID:
         return None
     try:
+        # Get slots already in use in our DB (pushed or scheduled)
+        db = get_scheduler_db()
+        cur = db.cursor()
+        cur.execute("""
+            SELECT DISTINCT slot FROM wifi_requests
+            WHERE status = 'pushed'
+              AND slot IS NOT NULL
+        """)
+        db_used = {r["slot"] for r in cur.fetchall()}
+        cur.close(); db.close()
+
+        # Get live state from Meraki
         resp = requests.get(
             f"{MERAKI_BASE}/networks/{MERAKI_NET_ID}/wireless/ssids",
             headers=meraki_headers(), timeout=10
@@ -181,7 +193,11 @@ def find_free_auto_slot(auto_slots):
         if resp.status_code != 200:
             return None
         live = {s["number"] + 1: s for s in resp.json()}
+
         for slot in auto_slots:
+            # Skip if our DB already has an active/scheduled record on this slot
+            if slot in db_used:
+                continue
             s = live.get(slot)
             if s and (s["name"].startswith("Unconfigured") or not s.get("enabled", True)):
                 return slot
