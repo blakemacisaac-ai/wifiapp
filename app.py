@@ -975,6 +975,31 @@ def delete_history_record(req_id):
     cur.close()
     return jsonify({"ok": True})
 
+@app.route("/admin/manual/<int:req_id>", methods=["POST"])
+@admin_required
+def make_manual(req_id):
+    db = get_db(); cur = db.cursor()
+    cur.execute("UPDATE wifi_requests SET status='pending', auto_mode=FALSE WHERE id=%s", (req_id,))
+    db.commit(); cur.close()
+    return jsonify({"ok": True})
+
+@app.route("/admin/settings", methods=["GET", "POST"])
+@admin_required
+def admin_settings():
+    db = get_db(); cur = db.cursor()
+    if request.method == "POST":
+        data  = request.json or {}
+        slots = [int(s) for s in data.get("slots", []) if 1 <= int(s) <= 15]
+        cur.execute("DELETE FROM auto_slots")
+        for s in slots:
+            cur.execute("INSERT INTO auto_slots (slot) VALUES (%s) ON CONFLICT DO NOTHING", (s,))
+        db.commit(); cur.close()
+        return jsonify({"ok": True, "slots": slots})
+    cur.execute("SELECT slot FROM auto_slots ORDER BY slot")
+    slots = [r["slot"] for r in cur.fetchall()]
+    cur.close()
+    return jsonify({"slots": slots})
+
 # ── Boot ──────────────────────────────────────────────────────
 init_db()
 start_scheduler()
