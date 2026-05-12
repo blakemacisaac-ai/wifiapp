@@ -140,7 +140,7 @@ body { font-family: "DM Sans", sans-serif; background: var(--cream); min-height:
 .tier-card {
   border: 2px solid var(--warm); border-radius: 5px; padding: 16px 12px;
   text-align: center; cursor: pointer; transition: all 0.2s; background: var(--cream);
-  position: relative;
+  position: relative; 
 }
 .tier-opt input:checked + .tier-card {
   border-color: var(--green-accent);
@@ -153,6 +153,7 @@ body { font-family: "DM Sans", sans-serif; background: var(--cream); min-height:
 .tier-unit { font-size: 11px; color: var(--text-dim); margin-top: 3px; letter-spacing: 0.06em; }
 .tier-desc { font-size: 11px; color: var(--text-dim); margin-top: 8px; line-height: 1.4; }
 .tier-opt input:checked + .tier-card .tier-speed { color: var(--green-mid); }
+
 
 /* SUBMIT */
 .submit-btn {
@@ -277,28 +278,28 @@ body { font-family: "DM Sans", sans-serif; background: var(--cream); min-height:
             <label class="tier-opt">
               <input type="radio" name="tier" value="1" {% if not form or form.get("tier","1") == "1" %}checked{% endif %}>
               <div class="tier-card">
-                <div class="tier-name">Tier 1</div>
-                <div class="tier-speed">25</div>
+                <div class="tier-name">Standard</div>
+                <div class="tier-speed">15</div>
                 <div class="tier-unit">Mbps</div>
-                <div class="tier-desc">General sessions, email & browsing</div>
+                <div class="tier-desc">Email, browsing & light video</div>
               </div>
             </label>
             <label class="tier-opt">
               <input type="radio" name="tier" value="2" {% if form and form.get("tier") == "2" %}checked{% endif %}>
               <div class="tier-card">
-                <div class="tier-name">Tier 2</div>
-                <div class="tier-speed">50</div>
+                <div class="tier-name">Business</div>
+                <div class="tier-speed">25</div>
                 <div class="tier-unit">Mbps</div>
-                <div class="tier-desc">Video calls & presentations</div>
+                <div class="tier-desc">HD conferencing & presentations</div>
               </div>
             </label>
             <label class="tier-opt">
               <input type="radio" name="tier" value="3" {% if form and form.get("tier") == "3" %}checked{% endif %}>
               <div class="tier-card">
-                <div class="tier-name">Tier 3</div>
-                <div class="tier-speed">100</div>
+                <div class="tier-name">Event</div>
+                <div class="tier-speed">50</div>
                 <div class="tier-unit">Mbps</div>
-                <div class="tier-desc">High-demand & large events</div>
+                <div class="tier-desc">Live streaming & large events</div>
               </div>
             </label>
           </div>

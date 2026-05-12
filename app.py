@@ -63,9 +63,9 @@ PORTAL_PASSWORD  = os.environ.get("PORTAL_PASSWORD", "")  # shared passphrase fo
 # Tier → true kbps using 1024-based conversion so Meraki reports exact Mbps
 # 25 Mbps = 25 * 1024 = 25600 kbps, etc.
 TIERS = {
-    "1": {"label": "Tier 1 — Standard",  "mbps": 25,  "kbps": 25600},
-    "2": {"label": "Tier 2 — Enhanced",  "mbps": 50,  "kbps": 51200},
-    "3": {"label": "Tier 3 — Premium",   "mbps": 100, "kbps": 102400},
+    "1": {"label": "Standard",  "mbps": 15,  "kbps": 15360},
+    "2": {"label": "Business",  "mbps": 25,  "kbps": 25600},
+    "3": {"label": "Event",     "mbps": 50,  "kbps": 51200},
 }
 
 # ── Database ─────────────────────────────────────────────────
@@ -121,14 +121,6 @@ def init_db():
             ("archived_at",     "TIMESTAMP"),
         ]:
             cur.execute(f"ALTER TABLE wifi_requests ADD COLUMN IF NOT EXISTS {col} {defn}")
-        # Auto-provisioning tables
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS auto_slots (
-                slot INTEGER PRIMARY KEY
-            )
-        """)
-        for col, defn in [("auto_mode", "BOOLEAN DEFAULT FALSE")]:
-            cur.execute(f"ALTER TABLE wifi_requests ADD COLUMN IF NOT EXISTS {col} {defn}")
         db.commit()
         cur.close()
 
@@ -157,53 +149,6 @@ def send_slack(msg):
         requests.post(SLACK_WEBHOOK, json={"text": msg}, timeout=5)
     except Exception as e:
         print(f"[slack] notify failed: {e}")
-
-# ── Auto-slot helpers ────────────────────────────────────────
-def get_auto_slots_db():
-    try:
-        db = get_scheduler_db()
-        cur = db.cursor()
-        cur.execute("SELECT slot FROM auto_slots ORDER BY slot DESC")
-        rows = cur.fetchall()
-        cur.close(); db.close()
-        return [r["slot"] for r in rows]
-    except Exception:
-        return []
-
-def find_free_auto_slot(auto_slots):
-    if not auto_slots or not MERAKI_API_KEY or not MERAKI_NET_ID:
-        return None
-    try:
-        # Get slots already in use in our DB (pushed or scheduled)
-        db = get_scheduler_db()
-        cur = db.cursor()
-        cur.execute("""
-            SELECT DISTINCT slot FROM wifi_requests
-            WHERE status = 'pushed'
-              AND slot IS NOT NULL
-        """)
-        db_used = {r["slot"] for r in cur.fetchall()}
-        cur.close(); db.close()
-
-        # Get live state from Meraki
-        resp = requests.get(
-            f"{MERAKI_BASE}/networks/{MERAKI_NET_ID}/wireless/ssids",
-            headers=meraki_headers(), timeout=10
-        )
-        if resp.status_code != 200:
-            return None
-        live = {s["number"] + 1: s for s in resp.json()}
-
-        for slot in auto_slots:
-            # Skip if our DB already has an active/scheduled record on this slot
-            if slot in db_used:
-                continue
-            s = live.get(slot)
-            if s and (s["name"].startswith("Unconfigured") or not s.get("enabled", True)):
-                return slot
-        return None
-    except Exception:
-        return None
 
 # ── Meraki helpers ────────────────────────────────────────────
 def meraki_headers():
@@ -262,6 +207,7 @@ def push_ssid_to_meraki(row, slot_index):
         )
 
     return resp
+    return resp
 
 # ══════════════════════════════════════════════════════════════
 # SCHEDULER  (runs in background thread, checks every 60s)
@@ -283,20 +229,17 @@ def scheduler_tick():
               AND enable_at IS NOT NULL
               AND enable_at <= %s
               AND (schedule_status IS NULL OR schedule_status NOT IN ('enabled', 'disabled'))
-            FOR UPDATE SKIP LOCKED
         """, (now,))
         to_enable = cur.fetchall()
         for row in to_enable:
             try:
-                # Mark enabled FIRST so no other tick picks it up
+                slot_index = int(row["slot"]) - 1
+                push_ssid_to_meraki(row, slot_index)
                 cur.execute(
                     "UPDATE wifi_requests SET schedule_status='enabled' WHERE id=%s",
                     (row["id"],)
                 )
                 db.commit()
-                # Then push to Meraki and notify
-                slot_index = int(row["slot"]) - 1
-                push_ssid_to_meraki(row, slot_index)
                 print(f"[scheduler] Enabled SSID '{row['ssid']}' on slot {row['slot']}")
                 send_slack(
                     f":large_green_circle: *Wi-Fi Network is Now Live!*\n"
@@ -317,17 +260,10 @@ def scheduler_tick():
               AND disable_at IS NOT NULL
               AND disable_at <= %s
               AND (schedule_status IS NULL OR schedule_status != 'disabled')
-            FOR UPDATE SKIP LOCKED
         """, (now,))
         to_disable = cur.fetchall()
         for row in to_disable:
             try:
-                # Mark disabled FIRST so no other tick picks it up
-                cur.execute(
-                    "UPDATE wifi_requests SET schedule_status='disabled' WHERE id=%s",
-                    (row["id"],)
-                )
-                db.commit()
                 slot_index = int(row["slot"]) - 1
                 requests.put(
                     f"{MERAKI_BASE}/networks/{MERAKI_NET_ID}/wireless/ssids/{slot_index}",
@@ -335,6 +271,11 @@ def scheduler_tick():
                     json={"enabled": False},
                     timeout=10
                 )
+                cur.execute(
+                    "UPDATE wifi_requests SET schedule_status='disabled' WHERE id=%s",
+                    (row["id"],)
+                )
+                db.commit()
                 print(f"[scheduler] Disabled SSID '{row['ssid']}' on slot {row['slot']}")
             except Exception as e:
                 print(f"[scheduler] Disable error for id {row['id']}: {e}")
@@ -348,19 +289,11 @@ def scheduler_tick():
               AND end_date IS NOT NULL
               AND (end_date::date + interval '28 hours 59 minutes') <= NOW()
               AND (schedule_status IS NULL OR schedule_status != 'disabled')
-            FOR UPDATE SKIP LOCKED
         """)
         to_archive = cur.fetchall()
         for row in to_archive:
             try:
-                # Archive FIRST so no other tick picks this row up
-                cur.execute(
-                    "UPDATE wifi_requests SET status='archived', archived_at=NOW(), schedule_status='disabled' WHERE id=%s",
-                    (row["id"],)
-                )
-                db.commit()
-                print(f"[scheduler] Auto-archived '{row['ssid']}' (end_date passed)")
-                # Then disable on Meraki and notify
+                # Disable on Meraki first
                 if row["slot"] and MERAKI_API_KEY and MERAKI_NET_ID:
                     try:
                         requests.put(
@@ -370,120 +303,25 @@ def scheduler_tick():
                             timeout=10
                         )
                         print(f"[scheduler] Disabled SSID '{row['ssid']}' on slot {row['slot']} (event ended)")
-                    except Exception as me:
-                        print(f"[scheduler] Meraki disable error for id {row['id']}: {me}")
-                send_slack(
-                    f":no_entry: *Wi-Fi Network Automatically Disabled*\n"
-                    f">*Event:* {row['conf_name']}\n"
-                    f">*SSID:* `{row['ssid']}`\n"
-                    f">*End Date:* {row['end_date']}\n"
-                    f">_This network has been disabled as the event has concluded._"
-                )
-            except Exception as e:
-                print(f"[scheduler] Archive error for id {row['id']}: {e}")
-
-        # ── Auto-provisioning: process 'auto' queue ──────────────
-        import datetime as _dt
-        today_est = (now + _dt.timedelta(hours=-5)).strftime('%Y-%m-%d')
-        auto_slots = get_auto_slots_db()
-
-        cur.execute("""
-            SELECT * FROM wifi_requests
-            WHERE status = 'auto'
-            ORDER BY start_date ASC, submitted_at ASC
-            FOR UPDATE SKIP LOCKED
-        """)
-        auto_queue = cur.fetchall()
-
-        for row in auto_queue:
-            try:
-                start       = row["start_date"]
-                is_same_day = (start <= today_est)
-                tier_key    = str(row.get("tier") or "1")
-                tier_info   = TIERS.get(tier_key, TIERS["1"])
-
-                slot = find_free_auto_slot(auto_slots)
-                if not slot:
-                    cur.execute(
-                        "UPDATE wifi_requests SET status='needs_slot', error_msg=%s WHERE id=%s",
-                        ("No automation slots available — manual assignment required", row["id"])
-                    )
-                    db.commit()
-                    send_slack(
-                        f":warning: *Automation Conflict — Manual Action Required*\n"
-                        f">*Event:* {row['conf_name']}\n"
-                        f">*SSID:* `{row['ssid']}`\n"
-                        f">*Start Date:* {row['start_date']}\n"
-                        f">_No automation slots available. Assign manually in the <https://aqsarniithotel.up.railway.app/admin|IT Admin Panel>._"
-                    )
-                    print(f"[auto] No slot for '{row['ssid']}'")
-                    continue
-
-                slot_index = int(slot) - 1
-
-                if is_same_day:
-                    resp = push_ssid_to_meraki(row, slot_index)
-                    if resp.status_code == 200:
-                        cur.execute("""
-                            UPDATE wifi_requests
-                            SET status='pushed', slot=%s, pushed_at=NOW(),
-                                error_msg=NULL, schedule_status='enabled', auto_mode=TRUE
-                            WHERE id=%s
-                        """, (slot, row["id"]))
-                        db.commit()
                         send_slack(
-                            f":large_green_circle: *Wi-Fi Network is Now Live! (Auto-Provisioned)*\n"
+                            f":no_entry: *Wi-Fi Network Automatically Disabled*\n"
                             f">*Event:* {row['conf_name']}\n"
                             f">*SSID:* `{row['ssid']}`\n"
-                            f">*Password:* `{row['password']}`\n"
-                            f">*Dates:* {row['start_date']} \u2192 {row['end_date']}\n"
-                            f">*Speed:* {tier_info['mbps']} Mbps (Tier {tier_key})\n"
-                            f">*Slot:* {slot} (auto-assigned)\n"
-                            f">_Network is live and ready for guests._"
+                            f">*End Date:* {row['end_date']}\n"
+                            f">_This network has been disabled as the event has concluded._"
                         )
-                        print(f"[auto] Provisioned '{row['ssid']}' on slot {slot}")
-                    else:
-                        cur.execute(
-                            "UPDATE wifi_requests SET status='needs_slot', error_msg=%s WHERE id=%s",
-                            (f"Meraki push failed: HTTP {resp.status_code}", row["id"])
-                        )
-                        db.commit()
-                else:
-                    enable_utc = _dt.datetime.strptime(start, "%Y-%m-%d").replace(
-                        hour=5, minute=0, second=0, tzinfo=timezone.utc
-                    )
-                    requests.put(
-                        f"{MERAKI_BASE}/networks/{MERAKI_NET_ID}/wireless/ssids/{slot_index}",
-                        headers=meraki_headers(),
-                        json={
-                            "name": row["ssid"], "enabled": False,
-                            "authMode": "psk", "encryptionMode": "wpa",
-                            "wpaEncryptionMode": "WPA2 only", "psk": row["password"],
-                            "perClientBandwidthLimitUp":   tier_info["kbps"],
-                            "perClientBandwidthLimitDown": tier_info["kbps"],
-                        }, timeout=10
-                    )
-                    cur.execute("""
-                        UPDATE wifi_requests
-                        SET status='pushed', slot=%s, pushed_at=NOW(),
-                            enable_at=%s, schedule_status='scheduled', auto_mode=TRUE
-                        WHERE id=%s
-                    """, (slot, enable_utc, row["id"]))
-                    db.commit()
-                    send_slack(
-                        f":calendar: *Wi-Fi Network Scheduled (Auto-Provisioned)*\n"
-                        f">*Event:* {row['conf_name']}\n"
-                        f">*SSID:* `{row['ssid']}`\n"
-                        f">*Password:* `{row['password']}`\n"
-                        f">*Starts:* {row['start_date']} at 12:00 AM EST\n"
-                        f">*Ends:* {row['end_date']} at 11:59 PM EST\n"
-                        f">*Speed:* {tier_info['mbps']} Mbps (Tier {tier_key})\n"
-                        f">*Slot:* {slot} (auto-assigned)\n"
-                        f">_Pre-configured on Meraki. Will enable automatically._"
-                    )
-                    print(f"[auto] Scheduled '{row['ssid']}' on slot {slot} for {start}")
+                    except Exception as me:
+                        print(f"[scheduler] Meraki disable error for id {row['id']}: {me}")
+
+                # Archive the record
+                cur.execute(
+                    "UPDATE wifi_requests SET status='archived', archived_at=NOW(), schedule_status='disabled' WHERE id=%s",
+                    (row["id"],)
+                )
+                db.commit()
+                print(f"[scheduler] Auto-archived '{row['ssid']}' (end_date passed)")
             except Exception as e:
-                print(f"[auto] Error id {row['id']}: {e}")
+                print(f"[scheduler] Archive error for id {row['id']}: {e}")
 
         cur.close()
         db.close()
@@ -561,9 +399,7 @@ def submit():
     db = get_db()
     cur = db.cursor()
     cur.execute(
-        """INSERT INTO wifi_requests
-           (conf_name, ssid, password, start_date, end_date, notes, tier, status, auto_mode)
-           VALUES (%s,%s,%s,%s,%s,%s,%s,'auto',TRUE)""",
+        "INSERT INTO wifi_requests (conf_name, ssid, password, start_date, end_date, notes, tier) VALUES (%s,%s,%s,%s,%s,%s,%s)",
         (conf_name, ssid, password, start_date, end_date, notes, tier)
     )
     db.commit()
@@ -609,16 +445,10 @@ def admin_logout():
 def admin_panel():
     db = get_db()
     cur = db.cursor()
-    cur.execute("""
-        SELECT * FROM wifi_requests
-        WHERE status IN ('pending','error','auto','needs_slot')
-        ORDER BY submitted_at DESC
-    """)
+    cur.execute("SELECT * FROM wifi_requests WHERE status='pending' OR status='error' ORDER BY submitted_at DESC")
     pending_list = cur.fetchall()
     cur.execute("SELECT * FROM wifi_requests WHERE status='pushed' ORDER BY pushed_at DESC")
     active_list = cur.fetchall()
-    cur.execute("SELECT slot FROM auto_slots ORDER BY slot")
-    auto_slot_list = [r["slot"] for r in cur.fetchall()]
     cur.close()
     live_ssids, ssid_error = get_live_ssids()
     return render_template(
@@ -628,8 +458,7 @@ def admin_panel():
         live_ssids=live_ssids,
         ssid_error=ssid_error,
         meraki_configured=bool(MERAKI_API_KEY and MERAKI_NET_ID),
-        tiers=TIERS,
-        auto_slot_list=auto_slot_list
+        tiers=TIERS
     )
 
 @app.route("/admin/ssids")
@@ -1145,31 +974,6 @@ def delete_history_record(req_id):
     db.commit()
     cur.close()
     return jsonify({"ok": True})
-
-@app.route("/admin/manual/<int:req_id>", methods=["POST"])
-@admin_required
-def make_manual(req_id):
-    db = get_db(); cur = db.cursor()
-    cur.execute("UPDATE wifi_requests SET status='pending', auto_mode=FALSE WHERE id=%s", (req_id,))
-    db.commit(); cur.close()
-    return jsonify({"ok": True})
-
-@app.route("/admin/settings", methods=["GET", "POST"])
-@admin_required
-def admin_settings():
-    db = get_db(); cur = db.cursor()
-    if request.method == "POST":
-        data  = request.json or {}
-        slots = [int(s) for s in data.get("slots", []) if 1 <= int(s) <= 15]
-        cur.execute("DELETE FROM auto_slots")
-        for s in slots:
-            cur.execute("INSERT INTO auto_slots (slot) VALUES (%s) ON CONFLICT DO NOTHING", (s,))
-        db.commit(); cur.close()
-        return jsonify({"ok": True, "slots": slots})
-    cur.execute("SELECT slot FROM auto_slots ORDER BY slot")
-    slots = [r["slot"] for r in cur.fetchall()]
-    cur.close()
-    return jsonify({"slots": slots})
 
 # ── Boot ──────────────────────────────────────────────────────
 init_db()
