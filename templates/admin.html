@@ -272,9 +272,9 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
             <span class="tag">📅 {{ r.start_date }} → {{ r.end_date }}</span>
             <span class="tag">🔑 ••••••••</span>
             {% set t = r.tier or '1' %}
-            {% if t == '1' %}<span class="tier-tag t1">Tier 1 · 25 Mbps</span>
-            {% elif t == '2' %}<span class="tier-tag t2">Tier 2 · 50 Mbps</span>
-            {% elif t == '3' %}<span class="tier-tag t3">Tier 3 · 100 Mbps</span>{% endif %}
+            {% if t == '1' %}<span class="tier-tag t1">Standard · 15 Mbps</span>
+            {% elif t == '2' %}<span class="tier-tag t2">Business · 25 Mbps</span>
+            {% elif t == '3' %}<span class="tier-tag t3">Event · 50 Mbps</span>{% endif %}
             {% if r.notes %}<span class="tag">💬 {{ r.notes }}</span>{% endif %}
           </div>
 
@@ -348,9 +348,9 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
           <div class="req-meta">
             <span class="tag" id="dates-{{ r.id }}">📅 {{ r.start_date }} → {{ r.end_date }}</span>
             {% set t = r.tier or '1' %}
-            {% if t == '1' %}<span class="tier-tag t1">Tier 1 · 25 Mbps</span>
-            {% elif t == '2' %}<span class="tier-tag t2">Tier 2 · 50 Mbps</span>
-            {% elif t == '3' %}<span class="tier-tag t3">Tier 3 · 100 Mbps</span>{% endif %}
+            {% if t == '1' %}<span class="tier-tag t1">Standard · 15 Mbps</span>
+            {% elif t == '2' %}<span class="tier-tag t2">Business · 25 Mbps</span>
+            {% elif t == '3' %}<span class="tier-tag t3">Event · 50 Mbps</span>{% endif %}
             <span class="tag">Slot {{ r.slot }}</span>
             {% if r.pushed_at %}<span class="tag">✓ Pushed {{ r.pushed_at.strftime('%b %d %H:%M') }}</span>{% endif %}
             {% if r.notes %}<span class="tag">💬 {{ r.notes }}</span>{% endif %}
